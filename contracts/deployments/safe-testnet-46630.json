@@ -1,0 +1,18 @@
+{
+  "network": "testnet",
+  "chainId": 46630,
+  "safeAddress": "0x31e6Ec051B3159d37E2602D197Cc18af4FD45e8A",
+  "threshold": 2,
+  "owners": [
+    "0x3D47DB6B0B38F8361564c7e26451fbf676304f4F",
+    "0x6a011c996Ee7448355491C84138C30e757381329",
+    "0x11c0c109B3740738b611db42F467c0FbEB358223"
+  ],
+  "deployTx": "0x437310f997cc5d7632264844d32bd63a331f3eb46b5f22475271bfb7380c3e1e",
+  "note": "Rehearsal multisig only. Not used as any contract's owner yet. Mainnet needs real signer identities chosen by the project owner, not these placeholder keys.",
+  "safeContracts": {
+    "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+    "proxyFactory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+    "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99"
+  }
+}

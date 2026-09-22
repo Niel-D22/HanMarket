@@ -9,6 +9,7 @@
     "keeper:once": "ts-node -e \"require('dotenv/config'); require('./src/keeper').runKeeper().then(() => process.exit(0))\"",
     "markets:create": "ts-node scripts/create-markets.ts",
     "e2e:testnet": "ts-node scripts/e2e-testnet.ts",
+    "deploy:safe": "ts-node scripts/deploy-safe.ts",
     "sync:protocol": "node scripts/sync-protocol.js",
     "typecheck": "tsc --noEmit -p ."
   },

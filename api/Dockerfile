@@ -10,9 +10,12 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# dependencies first, so a code change does not reinstall them
+# dependencies first, so a code change does not reinstall them. --omit=dev would be wrong here even
+# though this only serves an API: `npm start` runs ts-node directly (see CMD below), and ts-node and
+# typescript live in devDependencies, not dependencies. Omitting dev deps builds fine, then crash-loops
+# immediately with "ts-node: not found" — no build step ever proves the mistake.
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev || npm install --omit=dev
+RUN npm ci || npm install
 
 COPY . .
 

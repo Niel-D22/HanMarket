@@ -1,0 +1,31 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+
+# AI Skills
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+*keypair*.json
+deployer*.json
+
+# Logs & Build Output
+logs/
+*.log
+dist/
+coverage/
+
+# Environment
+.env.*
+
+# OS
+.DS_Store
+devnet-mints.json
+
+!.env.example
+
+# the template belongs in the repo; only the real .env must stay out
+!.env.example

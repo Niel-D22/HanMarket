@@ -1,0 +1,110 @@
+/* HanMarket colour tokens, light (rice paper) and dark (ink at night).
+ *
+ * The theme is chosen before the page paints by the inline script in index.html (no flash of the wrong theme):
+ * the visitor's saved choice, otherwise their system setting. ThemeProvider keeps it in sync afterwards.
+ *
+ * Dark mode rules (from the dark-mode design guidance):
+ *  - no pure black backgrounds or pure white text: warm near-black ground, off-white text (~14:1 contrast)
+ *  - depth from lighter surfaces, not shadows, which disappear on dark grounds
+ *  - accents are brightened: Han red and gold that read on ivory sink on black
+ *
+ * `-c` tokens are bare "r, g, b" triplets so a colour can be used at any opacity: rgba(var(--hm-ink-c), 0.5).
+ */
+:root {
+  color-scheme: light;
+  --hm-bg: #F6F2EB;
+  --hm-bg-2: #FBF8F3;
+  --hm-bg-c: 246, 242, 235;
+  --hm-card: #FFFFFF;
+  --hm-card-c: 255, 255, 255;
+  --hm-panel: #EFE8DC;
+  --hm-chip: #FBF6EC;
+  --hm-text: #0B0B0B;
+  --hm-ink-c: 40, 33, 28;
+  --hm-line-c: 11, 11, 11;
+  --hm-red: #AB000D;
+  --hm-red-hover: #8C000B;
+  --hm-red-c: 171, 0, 13;
+  --hm-on-red: #FFFFFF;
+  --hm-up: #C8102E;
+  --hm-down: #1E8E5A;
+  --hm-gold: #B38A55;
+  --hm-gold-c: 179, 138, 85;
+  --hm-warn: #9A7A2C;
+  --hm-stone: #5E5852;
+  --hm-shadow-c: 60, 30, 20;
+  --hm-solid: #0B0B0B;
+  --hm-on-solid: #FFFFFF;
+  /* hero art: the ink-wash layers are painted on ivory */
+  --hm-paper-filter: none;
+  --hm-art-filter: none;
+  --hm-cloud-filter: none;
+  --hm-lantern-glow: none;
+  --hm-logo-filter: invert(1);
+  --hm-paper-veil: 0;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --hm-bg: #13110F;
+  --hm-bg-2: #191613;
+  --hm-bg-c: 19, 17, 15;
+  --hm-card: #1E1B18;
+  --hm-card-c: 30, 27, 24;
+  --hm-panel: #1A1714;
+  --hm-chip: #26221D;
+  --hm-text: #EEE8DF;
+  --hm-ink-c: 236, 228, 216;
+  --hm-line-c: 255, 244, 230;
+  --hm-red: #E04A51;
+  --hm-red-hover: #EC6168;
+  --hm-red-c: 224, 74, 81;
+  --hm-on-red: #FFF8F2;
+  --hm-up: #F0555C;
+  --hm-down: #3CCB8B;
+  --hm-gold: #D9B47A;
+  --hm-gold-c: 217, 180, 122;
+  --hm-warn: #E0B25C;
+  --hm-stone: #B8AFA4;
+  --hm-shadow-c: 0, 0, 0;
+  --hm-solid: #EEE8DF;
+  --hm-on-solid: #13110F;
+  /* the same paintings at night: dark paper, dimmed pagoda, clouds turned to night mist, a lit lantern */
+  --hm-paper-filter: brightness(0.12) sepia(0.4) saturate(0.8);
+  --hm-art-filter: brightness(0.72) saturate(0.9) contrast(1.05);
+  --hm-cloud-filter: invert(0.92) sepia(0.25) brightness(0.62);
+  --hm-lantern-glow: drop-shadow(0 0 26px rgba(255, 96, 60, 0.55)) drop-shadow(0 0 70px rgba(255, 120, 60, 0.25));
+  --hm-logo-filter: none;
+  --hm-paper-veil: 0.86;
+}
+
+/* colours ease over when the theme flips (only during a switch, so page animations are untouched) */
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition: background-color 0.22s ease, color 0.22s ease, border-color 0.22s ease, fill 0.22s ease, filter 0.22s ease !important;
+}
+
+/* the ink-wash paintings (hero, closing panel, bento cards, 404) in their night version */
+img[src='/hero/bg-paper.webp'] { filter: var(--hm-paper-filter); }
+img[src='/hero/building.webp'] { filter: var(--hm-art-filter); }
+img[src='/hero/clouds-back.webp'] { filter: var(--hm-cloud-filter); }
+img[src='/hero/lantern.webp'] { filter: var(--hm-lantern-glow); }
+
+/* the light / dark switch */
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--hm-line-c), 0.14);
+  background: rgba(var(--hm-card-c), 0.5);
+  color: var(--hm-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+.theme-toggle:hover { transform: rotate(-12deg); background: rgba(var(--hm-card-c), 0.9); }
+.theme-toggle:focus-visible { outline: 2px solid var(--hm-red); outline-offset: 2px; }
+.theme-toggle svg { width: 17px; height: 17px; }

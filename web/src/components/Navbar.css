@@ -1,0 +1,347 @@
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  position: fixed;
+  z-index: 10;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.navbar-terminal {
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem clamp(14px, 2vw, 28px);
+  border-bottom: 1px solid rgba(var(--hm-line-c), 0.08);
+  background-color: var(--hm-bg);
+}
+.navbar-terminal .wallet-adapter-button {
+  background-color: var(--hm-red);
+  color: var(--hm-on-red);
+  font-family: "Montserrat", "Inter Tight", system-ui, sans-serif;
+  border-radius: 999px;
+  height: 42px;
+  padding: 0 1.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.navbar-terminal .wallet-adapter-button:hover {
+  background-color: var(--hm-red-hover);
+}
+.navbar-terminal .navbar-logo {
+  font-family: "Montserrat", "Inter Tight", sans-serif;
+}
+.navbar-terminal .navbar-badge {
+  font-family: "Montserrat", "Inter Tight", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--hm-red);
+  background-color: rgba(var(--hm-red-c), 0.06);
+  border: 1px solid rgba(var(--hm-red-c), 0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.navbar-landing {
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* same side padding as the hero content, so the wordmark lines up with the headline below it */
+  padding: 1.7rem clamp(20px, 8vw, 150px);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1.5rem;
+  transition:
+    background 0.35s ease,
+    padding 0.35s ease,
+    border-color 0.35s ease;
+}
+
+/* transparent over the hero art; once content scrolls underneath, a solid ivory bar keeps it legible */
+.navbar-landing.navbar-scrolled {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  background: var(--hm-bg);
+  border-bottom-color: rgba(var(--hm-line-c), 0.08);
+}
+.navbar-landing .navbar-actions {
+  justify-self: end;
+}
+
+.navbar-logo {
+  font-family: "Space Mono", monospace;
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: #5eead4;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navbar-badge {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  background-color: rgba(94, 234, 212, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(94, 234, 212, 0.2);
+}
+
+.navbar-links {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  font-family: "Space Mono", monospace;
+  font-size: 0.9rem;
+}
+
+.navbar-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* Hamburger Base Styles */
+.hamburger-btn {
+  display: none; /* hidden on desktop */
+  background: transparent;
+  border: none;
+  color: #5eead4;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .navbar-container {
+    padding: 0.5rem 1rem;
+  }
+
+  .navbar-landing {
+    grid-template-columns: 1fr auto;
+    padding: 1rem 20px;
+    gap: 0.75rem;
+  }
+
+  .navbar-landing.navbar-scrolled {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .navbar-logo {
+    font-size: 1rem;
+  }
+
+  .navbar-badge {
+    display: none; /* Hide the TERMINAL badge on small screens to save space */
+  }
+
+  .navbar-links {
+    display: none; /* the links move into the menu */
+  }
+
+  .navbar-actions {
+    gap: 0.5rem;
+  }
+
+  .navbar-launch {
+    padding: 0.6rem 1rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+  }
+
+  .wallet-adapter-button {
+    padding: 0 0.9rem !important;
+    font-size: 0.75rem !important;
+    height: 36px !important;
+  }
+
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 420px) {
+  /* keep the bar to wordmark + menu; Launch App lives in the menu */
+  .navbar-landing .navbar-launch {
+    display: none;
+  }
+}
+
+/* Mobile Menu Styles */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 4.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  background: rgba(var(--hm-bg-c), 0.98);
+  border: 1px solid rgba(var(--hm-line-c), 0.1);
+  border-radius: 16px;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 20px 50px -20px rgba(var(--hm-shadow-c), 0.35);
+  animation: slideDown 0.25s ease forwards;
+}
+
+.mobile-menu-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-content a {
+  color: var(--hm-text);
+  text-decoration: none;
+  font-family: "Montserrat", "Inter Tight", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 1rem 0.25rem;
+  border-bottom: 1px solid rgba(var(--hm-line-c), 0.07);
+}
+
+.mobile-menu-content a:last-child {
+  border-bottom: none;
+}
+
+.mobile-menu-content a.mobile-menu-launch {
+  margin-top: 0.5rem;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--hm-red);
+  color: var(--hm-on-red);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.navbar-landing .navbar-logo {
+  font-family: "Montserrat", "Inter Tight", sans-serif;
+  color: var(--hm-text) !important;
+}
+.navbar-landing .navbar-links {
+  gap: 2.6rem;
+}
+.navbar-landing .navbar-links a {
+  position: relative;
+  font-family: "Montserrat", "Inter Tight", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(var(--hm-line-c), 0.72) !important;
+  padding: 0.35rem 0;
+  transition: color 0.2s;
+}
+/* thin Han-red underline that draws in on hover */
+.navbar-landing .navbar-links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--hm-red);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+.navbar-landing .navbar-links a:hover::after {
+  transform: scaleX(1);
+}
+.navbar-landing .navbar-links a:hover {
+  color: var(--hm-red) !important;
+}
+.navbar-launch {
+  font-family: "Montserrat", "Inter Tight", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hm-text);
+  border: 1px solid rgba(var(--hm-line-c), 0.55);
+  border-radius: 999px;
+  padding: 0.75rem 1.4rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
+}
+.navbar-launch span {
+  display: inline-block;
+  margin-left: 0.4em;
+  transition: transform 0.25s ease;
+}
+.navbar-launch:hover {
+  background: var(--hm-red);
+  border-color: var(--hm-red);
+  color: var(--hm-on-red);
+}
+.navbar-launch:hover span {
+  transform: translateX(3px);
+}
+.navbar-launch:focus-visible {
+  outline: 2px solid var(--hm-red);
+  outline-offset: 3px;
+}
+.navbar-landing .hamburger-btn {
+  color: var(--hm-text);
+}
+
+/* terminal bar on phones: wordmark, network switch and wallet button must fit one row */
+@media (max-width: 560px) {
+  .navbar-terminal {
+    padding: 0.6rem 12px;
+    gap: 8px;
+  }
+  /* the coin alone, like an app icon: the full wordmark does not fit beside the switch and wallet button */
+  .navbar-terminal .navbar-logo > div {
+    display: none;
+  }
+  .navbar-terminal .navbar-actions {
+    gap: 6px;
+  }
+  .net-toggle {
+    padding: 2px !important;
+  }
+  .net-toggle span {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.6rem !important;
+    letter-spacing: 0.04em !important;
+  }
+  .navbar-terminal .wallet-adapter-button {
+    padding: 0 0.7rem !important;
+    font-size: 0.68rem !important;
+    height: 32px !important;
+  }
+  .navbar-terminal .wallet-adapter-button-start-icon {
+    display: none;
+  }
+}

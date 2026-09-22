@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------- secrets
+# Never commit these. api/.env holds the keeper and price-signer private keys, web/.env holds the
+# quote-signer key. Only the .example templates, which are empty, belong in the repo.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*keypair*.json
+deployer*.json
+id.json
+
+# ---------------------------------------------------------------- dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Foundry dependencies: installed with `forge install`, not committed.
+# After cloning, run:  cd contracts && forge install
+contracts/lib/
+
+# ---------------------------------------------------------------- build output
+dist/
+build/
+.dist/
+.vite/
+*.tsbuildinfo
+
+# Foundry build artifacts. cache/ also holds the "sensitive values" file that forge script writes
+# after a broadcast, so it must stay out of the repo.
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+# ...but the deployed addresses are public, and worth keeping:
+!contracts/deployments/
+
+# ---------------------------------------------------------------- tooling
+.vercel/
+.vercel
+coverage/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ---------------------------------------------------------------- editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+.vscode/*
+!.vscode/settings.json
+
+# ---------------------------------------------------------------- reference material
+# Third-party pages and assets saved while designing the UI. Useful locally, but they are someone
+# else's copyrighted files and only bloat a clone.
+cdn.prod.website-files.com/
+ajax.googleapis.com/
+d3e54v103j8qbb.cloudfront.net/
+cryptox-oly.webflow.io/
+Referensi UI UX/
+download-report.txt

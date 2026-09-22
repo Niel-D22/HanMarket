@@ -1,0 +1,39 @@
+{
+  "name": "stableperp-mcp",
+  "version": "1.0.3",
+  "type": "module",
+  "description": "Model Context Protocol Server for Stableperp on Solana",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "stableperp-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && cp src/stableperp.json dist/",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "solana",
+    "stableperp"
+  ],
+  "author": "Stableperp",
+  "license": "ISC",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.91.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

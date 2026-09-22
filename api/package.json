@@ -1,0 +1,37 @@
+{
+  "name": "hanmarket-api",
+  "version": "1.0.0",
+  "description": "HanMarket prices API and protocol keepers (settlement, perp sessions, liquidations) for Robinhood Chain",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "start": "ts-node src/index.ts",
+    "keeper:once": "ts-node -e \"require('dotenv/config'); require('./src/keeper').runKeeper().then(() => process.exit(0))\"",
+    "markets:create": "ts-node scripts/create-markets.ts",
+    "e2e:testnet": "ts-node scripts/e2e-testnet.ts",
+    "sync:protocol": "node scripts/sync-protocol.js",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "morgan": "^1.11.0",
+    "node-cron": "^4.6.0",
+    "viem": "^2.56.7",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^26.1.2",
+    "@types/node-cron": "^3.0.11",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -122,23 +122,39 @@ link X di top bar.
   - Hasil akhir Task 7 = laporan audit + semua temuan **critical/high sudah diperbaiki dan diuji ulang**.
 - **BLOCKED sampai:** anggaran dan auditor dipilih oleh pemilik proyek/perusahaan.
 
-### Task 8 — Kesiapan operasional & legal (BLOCKED — keputusan manusia)
+### Task 8 — Kesiapan operasional & legal (sebagian BLOCKED — keputusan manusia)
 Bukan task teknis, tapi wajib selesai sebelum Task 9:
-- Alamat **USDC resmi** di Robinhood Chain mainnet — didapat dari dokumentasi resmi Robinhood/Circle,
-  **diverifikasi oleh manusia**, bukan ditebak/disalin dari sumber tak resmi.
+- ✅ **Token collateral resmi ditemukan: USDG, bukan USDC.** Robinhood Chain memilih USDG (Global
+  Dollar, diterbitkan Paxos, konsorsium termasuk Robinhood sendiri) sebagai stablecoin native-nya —
+  bukan USDC. Dikonfirmasi lewat search independen (KuCoin, CryptoBriefing, globaldollar.com/newsroom)
+  dan diverifikasi manual oleh pemilik proyek di `robinhoodchain.blockscout.com`:
+  ```
+  0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168
+  ```
+  Sinyal verifikasi yang dicek: badge "Contract ✓" (source terverifikasi), website resmi
+  `globaldollar.com` tertaut di halaman token, **369.550 holder**, **230.617.208 transfer**,
+  market cap **$3,27 miliar**, decimals 6. Di antara 50+ token bernama sama yang muncul saat
+  pencarian "USDG" di explorer (mayoritas tiruan/scam tanpa badge dan tanpa harga), ini satu-satunya
+  dengan verified badge dan harga $1 tertera. Kontrak kita bersifat generik (`IERC20 collateralToken`),
+  jadi tidak masalah walau namanya bukan literal "USDC" — variabel deploy `USDC_ADDRESS` cukup diisi
+  alamat USDG ini.
 - **Dompet multisig** (misal Safe) untuk `OWNER` dan `TREASURY` di deploy mainnet — dibuat dan
-  ditandatangani oleh minimal 2-3 orang berwenang, bukan satu kunci di satu laptop.
+  ditandatangani oleh minimal 2-3 orang berwenang, bukan satu kunci di satu laptop. **BLOCKED.**
 - **Modal likuiditas asli** yang akan disetor ke Vault — sumber dana dan jumlah awal disepakati.
-- **Kajian legal**: apakah produk derivatif saham ini butuh izin di yurisdiksi target.
-- **BLOCKED sampai:** keempat poin di atas punya jawaban tertulis dari pemilik proyek.
+  Saran dari diskusi eksternal: mulai dari modal sendiri, seminimal mungkin, jangan langsung buka ke
+  LP publik. **BLOCKED — keputusan pemilik proyek.**
+- **Kajian legal**: apakah produk derivatif saham ini butuh izin di yurisdiksi target. **BLOCKED.**
+- **BLOCKED sampai:** tiga poin terakhir di atas punya jawaban tertulis dari pemilik proyek.
 
 ### Task 9 — Checklist final sebelum broadcast mainnet (WAJIB tanda tangan manusia)
 **AI tidak boleh mencentang task ini sendiri.** Sebelum siapa pun menjalankan
 `forge script script/Deploy.s.sol --rpc-url <mainnet-rpc> --broadcast` ke chain 4663:
 
 - [ ] Task 7 (audit) selesai, semua temuan critical/high sudah diperbaiki dan diuji ulang.
-- [ ] Task 8 (USDC resmi, multisig, modal, legal) selesai dan terverifikasi.
-- [ ] `USDC_ADDRESS` mainnet sudah dicek langsung oleh manusia berwenang (bukan AI) di block explorer resmi.
+- [ ] Task 8 (multisig, modal, legal) selesai dan terverifikasi.
+- [x] `USDC_ADDRESS` mainnet (isi dengan alamat USDG) sudah dicek langsung oleh manusia berwenang di
+      block explorer resmi: `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`. Cek ulang sesaat sebelum
+      broadcast — alamat token bisa saja berganti seiring waktu.
 - [ ] `BABA_FEED` = `0x62Cc8F9b5f56a33c9C8A60c8B92779f523c4E984` (Chainlink "Robinhood X BABA/USD")
       sudah dicek bahwa alamat ini masih aktif dan benar di dokumentasi Chainlink terbaru.
 - [ ] Dompet deployer mainnet baru (bukan dompet testnet) sudah diisi ETH asli secukupnya.

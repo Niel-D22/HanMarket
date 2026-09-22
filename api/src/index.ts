@@ -8,10 +8,12 @@ import type { Request, Response } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import cron from 'node-cron';
+import { parseEther } from 'viem';
 import { logger } from './logger';
 import { ASSETS, findAsset } from './assets';
 import { CANDLE_RANGES, getCandles, getQuotes, type CandleRange } from './prices';
 import { runLiquidations, runSessions, runSettlement, runTestnetFeeds } from './keeper';
+import { createMarkets } from './markets';
 import { NETWORKS } from './chain';
 
 // HanMarket API: prices and chart data, plus the protocol's bots (settlement, perp sessions, liquidations).
@@ -82,7 +84,19 @@ app.listen(PORT, () => {
       runSessions().catch(fail('sessions'));
       runLiquidations().catch(fail('liquidations'));
     });
-    logger.info(`Keeper on: settlement (${settleCron}), perp sessions and liquidations (every minute)`);
+    // New expiries, once a week. Chains are opened two Fridays ahead, so a missed run still leaves a
+    // week of cover. The gas floor keeps a long run from starving the jobs above, which matter more.
+    const marketsCron = process.env.MARKETS_CRON || '0 2 * * 1';
+    const gasFloor = parseEther(process.env.MARKETS_GAS_FLOOR_ETH || '0.0001');
+    cron.schedule(marketsCron, () => {
+      for (const network of ['testnet', 'mainnet'] as const) {
+        if (!NETWORKS[network].deployment) continue;
+        createMarkets({ network, weeks: 2, gasFloorWei: gasFloor })
+          .then((r) => logger.info(`[markets:${network}] ${r.created} created, ${r.existed} already open${r.stoppedForGas ? ' (stopped at the gas floor)' : ''}`))
+          .catch(fail(`markets:${network}`));
+      }
+    });
+    logger.info(`Keeper on: settlement (${settleCron}), perp sessions and liquidations (every minute), option chains (${marketsCron})`);
   } else {
     logger.info('Keeper disabled (KEEPER_PRIVATE_KEY not set)');
   }

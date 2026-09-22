@@ -1,131 +1,40 @@
-// Creates the weekly option chains on OptionsEngine.
+// Opens the weekly option chains on demand. The keeper does this on its own every week (src/index.ts);
+// this is the manual route, for the first run after a deploy or to top up one symbol.
 //
-//   npm run markets:create -- --network testnet [--weeks 2] [--symbols BABA,0700.HK] [--prices-url URL] [--dry-run]
-//
-// For every asset with options enabled: calls and puts at 5 strikes around spot, for each of the next
-// `weeks` Fridays at the exchange close (16:00 New York for ADRs, 16:00 Hong Kong for HK listings).
-// Signs with KEEPER_PRIVATE_KEY, which must be the OptionsEngine keeper (or owner).
+//   npm run markets:create -- --network testnet [--weeks 2] [--symbols BABA,0700.HK]
+//                             [--prices-url URL] [--gas-floor 0.0001] [--dry-run]
 import 'dotenv/config';
-import { keccak256, encodeAbiParameters } from 'viem';
-import { ASSETS } from '../src/assets';
-import { getQuotes } from '../src/prices';
-import { NETWORKS, accountFromEnv, publicClientFor, walletClientFor, type NetworkKey } from '../src/chain';
-import { optionsAbi, oracleAbi, registryAbi } from '../src/protocol/abis';
+import { parseEther } from 'viem';
+import { createMarkets } from '../src/markets';
+import type { NetworkKey } from '../src/chain';
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
 
-const network = (arg('network') ?? 'testnet') as NetworkKey;
-const weeks = Math.max(1, Math.min(8, Number(arg('weeks') ?? 2)));
-const dryRun = process.argv.includes('--dry-run');
-const only = arg('symbols')?.split(',').map((s) => s.trim().toUpperCase());
 // Strikes sit around spot, so they must come from the same prices the pricing service uses. Where
 // robinhood.com is blocked, borrow them from a deployed HanMarket API (see PRICES_URL in src/prices.ts):
-//   --prices-url https://hanperp.vercel.app/api
+//   --prices-url https://hanmarket.vercel.app/api
 const pricesUrl = arg('prices-url');
 if (pricesUrl) process.env.PRICES_URL = pricesUrl;
 
-/** Unix times of the next `count` Fridays at 16:00 in `tz`, the first at least `minHours` away. */
-function fridayCloses(tz: string, count: number, minHours = 24): number[] {
-  const out: number[] = [];
-  const now = Date.now();
-  for (let d = 0; out.length < count && d < 7 * count + 8; d++) {
-    const day = new Date(now + d * 86_400_000);
-    const parts = Object.fromEntries(
-      new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit' })
-        .formatToParts(day).map((p) => [p.type, p.value]),
-    );
-    if (parts.weekday !== 'Fri') continue;
-    // 16:00 local = 16:00 UTC minus the zone's offset on that date
-    const guess = Date.UTC(+parts.year, +parts.month - 1, +parts.day, 16, 0, 0);
-    const local = new Date(new Date(guess).toLocaleString('en-US', { timeZone: tz }));
-    const utc = new Date(new Date(guess).toLocaleString('en-US', { timeZone: 'UTC' }));
-    const ts = Math.floor((guess - (local.getTime() - utc.getTime())) / 1000);
-    if (ts * 1000 - now >= minHours * 3_600_000 && !out.includes(ts)) out.push(ts);
-  }
-  return out;
-}
+// Leave the keeper this much ETH for gas, so a big chain run cannot starve price updates and settlement.
+const gasFloor = arg('gas-floor');
 
-/** A round strike step for a price: 1, 2.5 or 5 times a power of ten, about 2.5% of spot. */
-function strikeStep(spot: number): number {
-  const target = spot * 0.025;
-  const pow = 10 ** Math.floor(Math.log10(target));
-  return [1, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= target) ?? 10 * pow;
-}
-
-const usd6 = (n: number) => BigInt(Math.round(n * 1e6));
-
-async function main() {
-  const d = NETWORKS[network].deployment;
-  if (!d) throw new Error(`${network.toUpperCase()}_DEPLOYMENT is not set`);
-  const keeper = accountFromEnv('KEEPER_PRIVATE_KEY');
-  if (!keeper && !dryRun) throw new Error('KEEPER_PRIVATE_KEY is not set');
-
-  const client = publicClientFor(network);
-  const wallet = keeper ? walletClientFor(network, keeper) : null;
-  const { quotes: marks } = await getQuotes();
-
-  const assetCount = Number(await client.readContract({ address: d.marketRegistry, abi: registryAbi, functionName: 'assetCount' }));
-  const onchain = new Map<string, { id: number; chainlink: boolean }>();
-  for (let i = 0; i < assetCount; i++) {
-    const a = await client.readContract({ address: d.marketRegistry, abi: registryAbi, functionName: 'getAsset', args: [i] });
-    if (!a.active || !a.optionsEnabled) continue;
-    const feed = await client.readContract({ address: d.oracleRouter, abi: oracleAbi, functionName: 'getFeed', args: [a.oracleId] });
-    onchain.set(a.symbol, { id: i, chainlink: feed.source === 1 });
-  }
-
-  let created = 0;
-  for (const asset of ASSETS) {
-    if (only && !only.includes(asset.symbol)) continue;
-    const reg = onchain.get(asset.symbol);
-    const spot = marks[asset.symbol]?.priceUsd;
-    if (!reg || !spot) {
-      console.log(`skip ${asset.symbol}: ${!reg ? 'not registered or options disabled' : 'no price'}`);
-      continue;
-    }
-
-    const step = strikeStep(spot);
-    const atm = Math.round(spot / step) * step;
-    // Chainlink equity feeds can go a day without an update, so their window matches the feed heartbeat
-    const settleWindow = reg.chainlink ? 86_400 : 1_800;
-    const oracleGrace = 3 * 86_400;
-
-    for (const expiryNum of fridayCloses(asset.board === 'HK' ? 'Asia/Hong_Kong' : 'America/New_York', weeks)) {
-      const expiry = BigInt(expiryNum);
-      for (const k of [-2, -1, 0, 1, 2]) {
-        const strikeNum = +(atm + k * step).toFixed(6);
-        if (strikeNum <= 0) continue;
-        for (const isCall of [true, false]) {
-          const strike = usd6(strikeNum);
-          const capNum = isCall ? step * 4 : Math.min(step * 4, strikeNum);
-          const cap = usd6(capNum);
-          const key = keccak256(encodeAbiParameters(
-            [{ type: 'uint32' }, { type: 'bool' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint64' }],
-            [reg.id, isCall, strike, cap, expiry],
-          ));
-          const label = `${asset.symbol} ${isCall ? 'C' : 'P'} $${strikeNum} cap $${capNum} exp ${new Date(expiryNum * 1000).toISOString()}`;
-          const exists = await client.readContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'seriesExists', args: [key] });
-          if (exists) { console.log(`exists  ${label}`); continue; }
-          if (dryRun || !wallet || !keeper) { console.log(`would create ${label}`); continue; }
-
-          const { request } = await client.simulateContract({
-            account: keeper, address: d.optionsEngine, abi: optionsAbi, functionName: 'createSeries',
-            args: [reg.id, isCall, strike, cap, expiry, settleWindow, oracleGrace],
-          });
-          const hash = await wallet.writeContract(request);
-          await client.waitForTransactionReceipt({ hash });
-          created++;
-          console.log(`created ${label}`);
-        }
-      }
-    }
-  }
-  console.log(`done: ${created} series created on ${network}`);
-}
-
-main().catch((e) => {
-  console.error(e.shortMessage ?? e.message ?? e);
-  process.exit(1);
-});
+createMarkets({
+  network: (arg('network') ?? 'testnet') as NetworkKey,
+  weeks: Math.max(1, Math.min(8, Number(arg('weeks') ?? 2))),
+  only: arg('symbols')?.split(',').map((s) => s.trim().toUpperCase()),
+  dryRun: process.argv.includes('--dry-run'),
+  gasFloorWei: gasFloor ? parseEther(gasFloor) : 0n,
+  log: (line) => console.log(line),
+})
+  .then((r) => {
+    for (const s of r.skipped) console.log(`skip ${s}`);
+    console.log(`done: ${r.created} created, ${r.existed} already open${r.stoppedForGas ? ' (stopped at the gas floor)' : ''}`);
+  })
+  .catch((e) => {
+    console.error(e.shortMessage ?? e.message ?? e);
+    process.exit(1);
+  });

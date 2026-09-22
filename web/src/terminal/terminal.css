@@ -421,3 +421,23 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 /* theme switch in the terminal bar */
 .tm .tm-theme { width: 34px; height: 34px; border-radius: 8px; border-color: var(--line-2); background: var(--panel-2); color: var(--muted); }
 .tm .tm-theme:hover { color: var(--text); background: var(--panel-3); transform: none; }
+
+/* watchlist star: the row and its toggle share one line, the star only showing intent on hover or when set */
+.tm-row-wrap { display: flex; align-items: stretch; }
+.tm-row-wrap .tm-row-btn { flex: 1; min-width: 0; }
+.tm-row-wrap:hover { background: var(--panel-2); }
+.tm-star {
+  flex-shrink: 0;
+  width: 26px;
+  border: none;
+  background: none;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.tm-row-wrap:hover .tm-star, .tm-star.on { opacity: 1; }
+.tm-star.on { color: var(--gold); }
+.tm-star:hover { color: var(--gold-2); }
+.tm-star:focus-visible { opacity: 1; }

@@ -18,6 +18,10 @@ export interface Quote {
   publishTime: number;  // unix seconds
   /** true when Robinhood reports the underlying equity is halted */
   halted?: boolean;
+  /** the session's range and turnover, in the asset's own currency; absent when Yahoo has none */
+  high?: number;
+  low?: number;
+  volume?: number;
 }
 
 const CACHE_MS = 5_000;
@@ -49,6 +53,10 @@ async function yahooQuote(ticker: string) {
     price: meta.regularMarketPrice as number,
     change24h: prev ? ((meta.regularMarketPrice - prev) / prev) * 100 : 0,
     publishTime: (meta.regularMarketTime as number) || Math.floor(Date.now() / 1000),
+    // the session's range and turnover, which the terminal shows beside the price
+    high: meta.regularMarketDayHigh as number | undefined,
+    low: meta.regularMarketDayLow as number | undefined,
+    volume: meta.regularMarketVolume as number | undefined,
   };
 }
 
@@ -125,6 +133,12 @@ async function refresh(): Promise<Snapshot> {
       source: rh ? 'robinhood' : p ? 'pyth' : 'yahoo',
       publishTime: rh?.generatedAt ?? p?.publishTime ?? y?.publishTime ?? Math.floor(Date.now() / 1000),
       halted: rh?.halted,
+      // Yahoo's high and low cover the exchange's regular session, but Robinhood's tokenized shares keep
+      // trading after it closes. Widening the range to the live price keeps the header honest — without
+      // this, a stock that moved after hours shows a price above its own "24h High".
+      high: y?.high ? Math.max(y.high, price) : undefined,
+      low: y?.low ? Math.min(y.low, price) : undefined,
+      volume: y?.volume,
     };
   });
   return { at: Date.now(), quotes, usdHkd };

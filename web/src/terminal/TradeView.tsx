@@ -52,6 +52,10 @@ export function StatsBar({ symbol, product, quote, perp, chainIv }: {
         <span className="muted">{asset?.currency}</span>{' '}
         <span className={`num ${tone(c)}`}>{pct(c)}</span>
       </div>
+      {/* the underlying's own session, which the option and perp are priced off */}
+      <div className="tm-stat"><span>24h High</span><span>{quote?.high ? fmtPrice(quote.high) : '—'}</span></div>
+      <div className="tm-stat"><span>24h Low</span><span>{quote?.low ? fmtPrice(quote.low) : '—'}</span></div>
+      <div className="tm-stat"><span>24h Volume</span><span>{quote?.volume ? fmtCompact(quote.volume) : '—'}</span></div>
       {isPerp ? (
         <>
           <div className="tm-stat"><span>Index (Chainlink)</span><span>{fmtPrice(perp.indexPrice)} USDC</span></div>
@@ -67,6 +71,7 @@ export function StatsBar({ symbol, product, quote, perp, chainIv }: {
           <div className="tm-stat"><span>Index (USD)</span><span>{fmtPrice(quote?.priceUsd ?? 0)} USDC</span></div>
           <div className="tm-stat"><span>Implied Vol</span><span>{chainIv ? `${(chainIv * 100).toFixed(1)}%` : '—'}</span></div>
           <div className="tm-stat"><span>Settlement</span><span>{symbol === 'BABA' ? 'Chainlink' : 'Signed price'}</span></div>
+          <div className="tm-stat"><span>Settlement Token</span><span>USDC</span></div>
           <span className={`tm-pill ${symbol === 'BABA' ? 'chainlink' : ''}`}>{asset?.board === 'HK' ? 'HKEX' : 'US ADR'}</span>
         </>
       )}

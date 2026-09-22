@@ -11,6 +11,10 @@ export interface Quote {
   /** Robinhood reports the underlying equity as halted */
   halted?: boolean;
   publishTime: number;
+  /** the session's range and turnover, in the asset's own currency */
+  high?: number;
+  low?: number;
+  volume?: number;
 }
 
 // One poller shared by every component that asks for prices, so the terminal makes a single request

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, useScroll, useSpring, useTransform, useReducedMotion } from "motion/react";
+import { motion, useScroll, useSpring, useTransform, useReducedMotion, useMotionValue, useAnimation, animate } from "motion/react";
 import type { MotionValue } from "motion/react";
 import { Cloudscape } from "./Cloudscape";
 import { useTheme } from "../theme/ThemeProvider";
@@ -113,6 +113,22 @@ export function HanperpHero() {
 
   const letters = "HANMARKET".split("");
 
+  // the lantern: idle sway is these controls' own animation, so grabbing it can stop that animation
+  // without fighting it, then hand back to it once the visitor lets go and it settles.
+  const lanternRotate = useMotionValue(0);
+  const lanternControls = useAnimation();
+  const draggingLantern = useRef(false);
+  const idleSway = () => {
+    if (reduce || draggingLantern.current) return;
+    lanternControls.start({ rotate: [-2.2, 2.2, -2.2], transition: { duration: 6, repeat: Infinity, ease: "easeInOut" } });
+  };
+  useEffect(() => {
+    if (reduce) return;
+    const t = setTimeout(idleSway, (T.lantern + 3) * 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduce]);
+
   return (
     <section ref={sectionRef} aria-label="HanMarket" className="hp-hero" style={{ position: "relative", height: "230vh", background: IVORY }}>
       <style>{`
@@ -199,9 +215,16 @@ export function HanperpHero() {
               >
                 <motion.img
                   src="/hero/lantern.webp" alt="" width={640} height={960}
-                  style={{ width: "100%", height: "auto", display: "block", transformOrigin: "50% 1%" }}
-                  animate={reduce ? undefined : { rotate: [-2.2, 2.2, -2.2] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: T.lantern + 3 }}
+                  style={{ width: "100%", height: "auto", display: "block", transformOrigin: "50% 1%", rotate: lanternRotate }}
+                  animate={lanternControls}
+                  {...(reduce ? {} : {
+                    onHoverStart: () => {
+                      draggingLantern.current = true; // reuse as a generic "idle sway is suspended" flag
+                      lanternControls.stop();
+                      animate(lanternRotate, [lanternRotate.get(), 16, -11, 6.5, -3.5, 1.5, 0], { duration: 1.7, ease: "easeInOut" })
+                        .then(() => { draggingLantern.current = false; idleSway(); });
+                    },
+                  })}
                 />
               </motion.div>
             </motion.div>
@@ -222,8 +245,11 @@ export function HanperpHero() {
           </motion.div>
         </motion.div>
 
-        {/* 4. headline */}
-        <motion.div className="hp-content" style={{ y: textY, opacity: textOpacity, pointerEvents: textPointer }}>
+        {/* 4. headline — the container itself never captures pointer events: it is a full-screen flex box,
+            and with pointer-events: auto here it silently ate every hover/drag meant for the lantern and
+            pagoda sitting behind it (they share screen space; the container's empty flex space doesn't
+            know that). Only the two CTA links below need to be clickable, so they carry pointer-events. */}
+        <motion.div className="hp-content" style={{ y: textY, opacity: textOpacity, pointerEvents: "none" }}>
           <div>
             <div className="hp-brand">
               <motion.img
@@ -260,7 +286,7 @@ export function HanperpHero() {
                 />
               </div>
             </div>
-            <motion.div className="hp-cta" {...fadeUp(T.cta)}>
+            <motion.div className="hp-cta" style={{ pointerEvents: textPointer }} {...fadeUp(T.cta)}>
               <Link to="/terminal" className="hp-btn hp-btn--solid">Start Trading →</Link>
               <Link to="/#markets" className="hp-btn hp-btn--ghost">View Markets</Link>
             </motion.div>

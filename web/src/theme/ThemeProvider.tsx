@@ -1,8 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 // Light / dark theme for the whole site. index.html applies the theme before first paint; this keeps
-// <html data-theme> in sync afterwards, follows the system setting until the visitor picks one, and remembers
-// the pick. Components that draw on canvas / WebGL read `theme` here, everything else uses the CSS tokens.
+// <html data-theme> in sync afterwards and remembers the visitor's pick.
+//
+// The default is always light, deliberately not the OS/browser's prefers-color-scheme: the brand is
+// designed to be seen in daylight first, and a system set to dark should not silently change a first-time
+// visitor's very first impression. Dark is only ever reached by pressing the toggle, and from then on the
+// choice is remembered (localStorage) and shared across every route, since there is one ThemeProvider at
+// the app root (main.tsx) — Landing and the Terminal read the same state, they never fall back to system
+// preference independently. 'system' is kept as a type for anyone wiring a future explicit "match system"
+// option, but nothing produces it as a default any more.
 
 export type Theme = 'light' | 'dark';
 export type ThemePreference = Theme | 'system';
@@ -15,9 +22,9 @@ function readPreference(): ThemePreference {
     const v = localStorage.getItem(KEY);
     if (v === 'light' || v === 'dark') return v;
   } catch {
-    // storage blocked: follow the system
+    // storage blocked: fall through to the default below
   }
-  return 'system';
+  return 'light';
 }
 
 const resolve = (p: ThemePreference): Theme => (p === 'system' ? (media()?.matches ? 'dark' : 'light') : p);
@@ -35,7 +42,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPref] = useState<ThemePreference>(readPreference);
   const [theme, setTheme] = useState<Theme>(() => resolve(readPreference()));
 
-  // follow the system while no explicit choice is saved
+  // Only relevant if something later calls setPreference('system'): the toggle itself never does, so
+  // by default this effect has nothing to attach to and the site simply stays on its last explicit choice.
   useEffect(() => {
     const mq = media();
     if (!mq || preference !== 'system') return;

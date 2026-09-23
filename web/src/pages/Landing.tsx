@@ -83,140 +83,108 @@ function MiniChart({ up = true, id = "hero" }: { up?: boolean; id?: string }) {
 }
 
 /* ---------- hero dashboard preview: HanMarket's own trading UI, not a generic bank template ---------- */
-function TradingPreview() {
-  const pillBtn = (active = false): React.CSSProperties => ({
-    padding: "5px 12px", borderRadius: 999, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap",
-    background: active ? GRADIENT : "rgba(var(--hm-line-c), 0.05)",
-    color: active ? "var(--hm-on-red)" : "rgba(var(--hm-ink-c), 0.65)",
-    border: active ? "none" : "1px solid rgba(var(--hm-line-c), 0.08)",
-  });
-  const sideItem = (active = false): React.CSSProperties => ({
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    padding: "7px 10px", borderRadius: 8, fontSize: 11,
-    background: active ? "rgba(var(--hm-red-c), 0.1)" : "transparent",
-    color: active ? GOLD : "rgba(var(--hm-ink-c), 0.55)", fontWeight: active ? 600 : 400,
-  });
-  const trades: [string, string, string, string, string][] = [
-    ["09/16", "0700.HK", "Buy Call", "−12.40 USDC", "Filled"],
-    ["09/16", "9988.HK", "Sell Put", "+3.60 USDC", "Filled"],
-    ["09/15", "1810.HK", "Redeem", "+2.15 USDC", "Paid"],
-    ["09/15", "1211.HK", "Buy Call", "−10.20 USDC", "Filled"],
-  ];
+/* ---------- Engines section: straight into the product, no browser-chrome mockup in between.
+   Four cards, one per deployed contract, each with the number that contract actually tracks —
+   not a screenshot of the terminal, the protocol itself. */
 
+const engineChip: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 999,
+  fontFamily: SANS, fontSize: 9.5, fontWeight: 600, letterSpacing: "0.03em",
+  background: "rgba(var(--hm-red-c), 0.1)", border: "1px solid rgba(var(--hm-red-c), 0.28)", color: GOLD,
+};
+
+function VaultEngineVisual() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 70, scale: 0.94, rotateX: 12 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 1.1, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-      style={{ position: "relative", width: "100%", maxWidth: 900, transformPerspective: 1400 }}
+    <div style={{ width: "100%", maxWidth: 260 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5, marginBottom: 6 }}>
+        <span style={{ color: "rgba(var(--hm-ink-c), 0.5)" }}>Pool</span>
+        <span style={{ color: TEXT, fontWeight: 600 }}>1,000,000 USDC</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5 }}>
+        <span style={{ color: "rgba(var(--hm-ink-c), 0.5)" }}>Reserved</span>
+        <span style={{ color: GOLD, fontWeight: 600 }}>42,180 USDC</span>
+      </div>
+      <div style={{ height: 4, borderRadius: 99, background: "rgba(var(--hm-line-c), 0.08)", overflow: "hidden", marginTop: 8 }}>
+        <div style={{ width: "4.2%", height: "100%", background: GRADIENT }} />
+      </div>
+    </div>
+  );
+}
+
+function OptionsEngineVisual() {
+  const cell = (k: string, v: string) => (
+    <div key={k} style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: TEXT }}>{v}</div>
+      <div style={{ fontFamily: SANS, fontSize: 9.5, letterSpacing: "0.06em", color: "rgba(var(--hm-ink-c), 0.45)", marginTop: 3 }}>{k}</div>
+    </div>
+  );
+  return <div style={{ display: "flex", gap: 22 }}>{cell("DELTA", "0.58")}{cell("THETA", "−0.12")}{cell("IV", "43.8%")}</div>;
+}
+
+function PerpsEngineVisual() {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, color: TEXT }}>
+        3x <span style={{ fontSize: 12, color: "rgba(var(--hm-ink-c), 0.45)", fontWeight: 400, fontFamily: SANS }}>max leverage</span>
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, color: RED, marginTop: 8 }}>Funding +0.0032% / 1h</div>
+    </div>
+  );
+}
+
+function OracleRouterVisual() {
+  const row = (label: string, source: string) => (
+    <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: TEXT }}>{label}</span>
+      <span style={engineChip}>{source}</span>
+    </div>
+  );
+  return <div style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", maxWidth: 240 }}>{row("BABA", "Chainlink")}{row("32 others", "Signed price")}</div>;
+}
+
+const ENGINE_CARDS = [
+  {
+    label: "01", title: "Vault", description: "Single USDC pool, counterparty to every trade. Payouts are reserved before a position opens, never after.",
+    visual: <VaultEngineVisual />,
+  },
+  {
+    label: "02", title: "Options Engine", description: "Cash-settled European calls and puts, capped payout, priced by realised volatility and a signed quote.",
+    visual: <OptionsEngineVisual />,
+  },
+  {
+    label: "03", title: "Perpetuals Engine", description: "Isolated-margin perpetuals with funding driven by open-interest skew, not a fixed rate.",
+    visual: <PerpsEngineVisual />,
+  },
+  {
+    label: "04", title: "Oracle Router", description: "Chainlink where Robinhood has tokenized the equity; an EIP-712 signed price everywhere else.",
+    visual: <OracleRouterVisual />,
+  },
+];
+
+/** The Protocol: one glowing spec panel, not a bento grid — deliberately a different shape from the
+ * How It Works cards just above it, so the two sections don't read as the same component twice. */
+function ProtocolPanel() {
+  return (
+    <BorderGlow
+      borderRadius={28}
+      backgroundColor="var(--hm-card)"
+      glowRadius={340}
+      glowIntensity={0.75}
+      coneSpread={36}
+      colors={[RED, ORANGE, GOLD]}
+      style={{ maxWidth: 1100, margin: "0 auto", overflow: "hidden", boxShadow: "0 40px 90px -34px rgba(var(--hm-shadow-c), 0.3)" }}
     >
-      <BorderGlow
-        borderRadius={20}
-        backgroundColor="var(--hm-card)"
-        glowRadius={260}
-        glowIntensity={0.9}
-        coneSpread={30}
-        colors={[RED, ORANGE, GOLD]}
-        style={{
-          overflow: "hidden", padding: "clamp(8px,1.2vw,14px)",
-          boxShadow: "0 40px 90px -30px rgba(var(--hm-shadow-c), 0.28)",
-          fontFamily: SANS,
-        }}
-      >
-       {/* decorative preview: the outer BorderGlow still needs mouse events for the glow, but nothing inside is clickable */}
-       <div style={{ userSelect: "none", pointerEvents: "none" }}>
-        {/* top bar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, color: TEXT }}>
-            <LogoMark size={18} /><LogoText /> <span style={{ color: "rgba(var(--hm-ink-c), 0.35)", fontWeight: 400 }}>/ Terminal</span>
+      <div className="protocol-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+        {ENGINE_CARDS.map((c) => (
+          <div key={c.title} className="protocol-col" style={{ padding: "34px 26px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: "0.08em" }}>{c.label}</span>
+            <div style={{ minHeight: 54, display: "flex", alignItems: "center" }}>{c.visual}</div>
+            <h3 style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, margin: 0 }}>{c.title}</h3>
+            <p style={{ fontFamily: SANS, fontSize: 13.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{c.description}</p>
           </div>
-          <div className="tp-search" style={{
-            flex: "1 1 auto", maxWidth: 240, height: 26, borderRadius: 8, background: "rgba(var(--hm-line-c), 0.04)",
-            border: "1px solid rgba(var(--hm-line-c), 0.06)", display: "flex", alignItems: "center", padding: "0 10px",
-            fontSize: 10, color: "rgba(var(--hm-ink-c), 0.35)", justifyContent: "space-between",
-          }}>
-            <span>Search markets</span><span>⌘K</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 9, fontWeight: 600, color: GOLD, border: `1px solid rgba(var(--hm-red-c), 0.3)`, borderRadius: 999, padding: "3px 8px" }}>TESTNET</span>
-            <span style={{ width: 22, height: 22, borderRadius: "50%", background: GRADIENT, display: "grid", placeItems: "center", fontSize: 9, fontWeight: 700, color: "var(--hm-on-red)" }}>YOU</span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, padding: "0 4px 4px" }}>
-          {/* sidebar */}
-          <div className="tp-side" style={{ width: 108, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2, paddingTop: 4 }}>
-            <div style={sideItem(true)}>Markets</div>
-            <div style={sideItem()}>Positions <span style={{ fontSize: 9, background: "rgba(var(--hm-red-c), 0.15)", color: GOLD, borderRadius: 999, padding: "1px 5px" }}>3</span></div>
-            <div style={sideItem()}>Docs</div>
-          </div>
-
-          {/* main */}
-          <div style={{ flex: 1, minWidth: 0, background: "var(--hm-bg-2)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>0700.HK</span>
-              <span style={{ fontSize: 10, color: "rgba(var(--hm-ink-c), 0.45)", fontFamily: "'Noto Sans SC'," + SANS }}>腾讯控股 Tencent</span>
-              <span style={{ marginLeft: "auto", fontSize: 9, color: GOLD, border: "1px solid rgba(var(--hm-red-c), 0.3)", borderRadius: 999, padding: "2px 8px" }}>Call · 30D</span>
-            </div>
-
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span style={pillBtn(true)}>Buy Call</span>
-              <span style={pillBtn()}>Buy Put</span>
-              <span style={pillBtn()}>Sell Call</span>
-              <span style={pillBtn()}>Sell Put</span>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 220px", background: "rgba(var(--hm-line-c), 0.03)", border: "1px solid rgba(var(--hm-line-c), 0.06)", borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 10, color: "rgba(var(--hm-ink-c), 0.5)" }}>Underlying Price</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, fontFamily: MONO }}>HK$480.00</div>
-                <div style={{ display: "flex", gap: 12, fontSize: 10, marginTop: 4, marginBottom: 6 }}>
-                  <span style={{ color: RED }}>▲ +1.24% 24h</span>
-                  <span style={{ color: "rgba(var(--hm-ink-c), 0.4)" }}>Vol 2.1M</span>
-                </div>
-                <MiniChart up />
-              </div>
-              <div style={{ flex: "1 1 220px", background: "rgba(var(--hm-line-c), 0.03)", border: "1px solid rgba(var(--hm-line-c), 0.06)", borderRadius: 12, padding: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: "rgba(var(--hm-ink-c), 0.5)" }}>Option Chain</span>
-                </div>
-                {[["480", "12.40"], ["500", "7.85"], ["520", "4.10"]].map(([strike, prem], i) => (
-                  <div key={strike} style={{
-                    display: "flex", justifyContent: "space-between", fontSize: 11, padding: "7px 0",
-                    borderTop: i === 0 ? "none" : "1px solid rgba(var(--hm-line-c), 0.05)",
-                  }}>
-                    <span style={{ color: "rgba(var(--hm-ink-c), 0.6)" }}>Call {strike}</span>
-                    <span style={{ color: GOLD, fontFamily: MONO }}>{prem}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: 10, color: "rgba(var(--hm-ink-c), 0.5)", marginBottom: 6 }}>Recent Trades</div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {trades.map(([date, market, side, amount, status]) => (
-                  <div key={date + market + side} className="tp-trade" style={{
-                    display: "grid", gap: 6, fontSize: 10.5,
-                    padding: "6px 0", borderTop: "1px solid rgba(var(--hm-line-c), 0.05)", alignItems: "center",
-                  }}>
-                    <span style={{ color: "rgba(var(--hm-ink-c), 0.35)" }}>{date}</span>
-                    <span style={{ color: TEXT }}>{market}</span>
-                    <span className="tp-sm-hide" style={{ color: "rgba(var(--hm-ink-c), 0.5)" }}>{side}</span>
-                    <span style={{ color: amount.startsWith("+") ? RED : "rgba(var(--hm-ink-c), 0.6)", fontFamily: MONO }}>{amount}</span>
-                    <span className="tp-sm-hide" style={{
-                      color: status === "Filled" ? "var(--hm-down)" : "var(--hm-warn)", fontSize: 9, fontWeight: 600,
-                    }}>{status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-       </div>
-      </BorderGlow>
-    </motion.div>
+        ))}
+      </div>
+    </BorderGlow>
   );
 }
 
@@ -313,30 +281,132 @@ function ReclaimVisual() {
   );
 }
 
-/* ---------- concentric-circle feature icon ---------- */
-const Concentric = ({ variant = 0 }: { variant?: number }) => (
-  <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
-    {variant === 1 ? (
-      <>
-        <ellipse cx="26" cy="26" rx="24" ry="14" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.5" />
-        <ellipse cx="26" cy="26" rx="14" ry="9" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.7" />
-        <circle cx="26" cy="26" r="4" fill={GOLD} opacity="0.9" />
-      </>
-    ) : variant === 2 ? (
-      <>
-        <path d="M26 6 C10 6 4 20 4 26 C4 32 10 46 26 46 C42 46 48 32 48 26 C48 20 42 6 26 6Z" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.5" />
-        <circle cx="26" cy="26" r="10" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.7" />
-        <circle cx="26" cy="26" r="3.5" fill={GOLD} opacity="0.9" />
-      </>
-    ) : (
-      <>
-        <circle cx="26" cy="26" r="22" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.45" />
-        <circle cx="26" cy="26" r="14" fill="none" stroke={GOLD} strokeWidth="1.2" opacity="0.65" />
-        <circle cx="26" cy="26" r="6" fill="none" stroke={GOLD} strokeWidth="1.4" opacity="0.9" />
-      </>
-    )}
-  </svg>
-);
+/* ---------- perpetuals equivalents of the market/ticket/outcome visuals above ---------- */
+
+function PerpMarketVisual() {
+  return (
+    <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 12,
+        background: "rgba(var(--hm-red-c), 0.14)", border: "1px solid rgba(var(--hm-red-c), 0.4)",
+      }}>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: TEXT }}>BABA-PERP</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, color: GOLD }}>$118.20</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontFamily: MONO, color: "rgba(var(--hm-ink-c), 0.55)", padding: "0 4px" }}>
+        <span>Funding / 1h <span style={{ color: RED }}>+0.0032%</span></span>
+        <span>up to 3x</span>
+      </div>
+    </div>
+  );
+}
+
+function PerpTicketVisual() {
+  const line = (k: string, v: string, accent = false) => (
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0" }}>
+      <span style={{ fontFamily: SANS, color: "rgba(var(--hm-ink-c), 0.55)" }}>{k}</span>
+      <span style={{ fontFamily: MONO, color: accent ? GOLD : TEXT }}>{v}</span>
+    </div>
+  );
+  return (
+    <div style={{
+      width: "100%", maxWidth: 340, padding: 16, borderRadius: 16,
+      background: "rgba(var(--hm-card-c), 0.88)", border: "1px solid rgba(var(--hm-line-c), 0.08)",
+    }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        <span style={{ ...chip, background: GRADIENT, color: "var(--hm-on-red)", border: "none", fontWeight: 700 }}>Long</span>
+        <span style={chip}>Short</span>
+      </div>
+      {line("Market", "BABA-PERP")}
+      {line("Leverage", "3x")}
+      {line("Margin", "500 USDC")}
+      {line("Liq. price", "$92.40", true)}
+      <div style={{ marginTop: 10, textAlign: "center", padding: "10px 0", borderRadius: 999, background: "var(--hm-solid)", color: "var(--hm-on-solid)", fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
+        Confirm in wallet
+      </div>
+    </div>
+  );
+}
+
+function FundingVisual() {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: RED }}>+0.0032%</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 4 }}>Funding / 1h · next in 42m</div>
+    </div>
+  );
+}
+
+function ClosePositionVisual() {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: RED }}>+128.40</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>USDC · position closed</div>
+    </div>
+  );
+}
+
+/* ---------- Options / Perpetuals toggle for the How It Works section ---------- */
+
+const OPTIONS_STEPS = [
+  { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
+  { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
+  {
+    label: "03", title: "Pick a market", description: "Hong Kong & China equity options, by strike and expiry.",
+    visual: <MarketsVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
+  },
+  {
+    label: "04", title: "Place the trade", description: "Buy a call or put, or sell one to earn the premium. You sign every trade.",
+    visual: <TicketVisual />, background: <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />,
+  },
+  { label: "05", title: "Redeem at expiry", description: "In the money? Redeem your USDC payout as soon as the market settles.", visual: <ExpiryVisual /> },
+  { label: "06", title: "Reclaim collateral", description: "Sellers take back unsold contracts and every dollar not owed to buyers.", visual: <ReclaimVisual /> },
+];
+
+const PERPS_STEPS = [
+  { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
+  { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
+  {
+    label: "03", title: "Pick a market", description: "BABA-PERP, priced off the Chainlink oracle, up to 3x leverage.",
+    visual: <PerpMarketVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
+  },
+  {
+    label: "04", title: "Open a position", description: "Go long or short with leverage. You sign every trade.",
+    visual: <PerpTicketVisual />, background: <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />,
+  },
+  { label: "05", title: "Funding, not expiry", description: "No expiry date. Longs and shorts exchange funding every hour based on demand.", visual: <FundingVisual /> },
+  { label: "06", title: "Close anytime", description: "Close your position whenever you want, or get liquidated if your margin runs out.", visual: <ClosePositionVisual /> },
+];
+
+function HowItWorksToggle({ product, onChange }: { product: "options" | "perps"; onChange: (p: "options" | "perps") => void }) {
+  const seg = (key: "options" | "perps", label: string) => (
+    <button
+      key={key}
+      type="button"
+      role="tab"
+      aria-selected={product === key}
+      onClick={() => onChange(key)}
+      style={{
+        fontFamily: SANS, fontSize: 13.5, fontWeight: 700, padding: "9px 22px", borderRadius: 999, border: "none", cursor: "pointer",
+        background: product === key ? GRADIENT : "transparent",
+        color: product === key ? "var(--hm-on-red)" : MUTED,
+        transition: "background .2s ease, color .2s ease",
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div role="tablist" aria-label="Product" style={{
+      display: "inline-flex", gap: 4, padding: 4, borderRadius: 999,
+      background: "rgba(var(--hm-line-c), 0.05)", border: "1px solid rgba(var(--hm-line-c), 0.08)",
+    }}>
+      {seg("options", "Options")}
+      {seg("perps", "Perpetuals")}
+    </div>
+  );
+}
+
 
 /* ---------- markets coverflow: one tidy card per underlying (illustrative figures) ---------- */
 interface Market {
@@ -346,14 +416,16 @@ interface Market {
   price: string;
   change: number; // % over 24h
   chain: [strike: string, call: string, put: string][]; // middle row is at-the-money
+  /** the issuer's own logo, not HanMarket's — shown for identification, same as any quote screen */
+  logo: string;
 }
 
 const MARKETS: Market[] = [
-  { symbol: "9988.HK", cn: "阿里巴巴", name: "Alibaba", price: "85.00", change: -0.93, chain: [["80", "6.10", "1.35"], ["85", "3.60", "2.95"], ["90", "1.70", "5.90"]] },
-  { symbol: "1810.HK", cn: "小米集团", name: "Xiaomi", price: "42.00", change: 2.1, chain: [["40", "3.20", "0.95"], ["42", "2.15", "1.70"], ["45", "1.20", "3.05"]] },
-  { symbol: "0700.HK", cn: "腾讯控股", name: "Tencent", price: "480.00", change: 1.24, chain: [["460", "22.80", "4.90"], ["480", "12.40", "9.10"], ["500", "7.85", "14.60"]] },
-  { symbol: "1211.HK", cn: "比亚迪", name: "BYD", price: "260.00", change: -0.41, chain: [["240", "22.40", "3.60"], ["260", "10.20", "8.10"], ["280", "6.40", "13.40"]] },
-  { symbol: "3690.HK", cn: "美团", name: "Meituan", price: "120.00", change: 2.35, chain: [["110", "12.30", "2.10"], ["120", "6.20", "5.40"], ["130", "2.60", "11.80"]] },
+  { symbol: "9988.HK", cn: "阿里巴巴", name: "Alibaba", price: "85.00", change: -0.93, logo: "/logos/alibaba.svg", chain: [["80", "6.10", "1.35"], ["85", "3.60", "2.95"], ["90", "1.70", "5.90"]] },
+  { symbol: "1810.HK", cn: "小米集团", name: "Xiaomi", price: "42.00", change: 2.1, logo: "/logos/xiaomi.svg", chain: [["40", "3.20", "0.95"], ["42", "2.15", "1.70"], ["45", "1.20", "3.05"]] },
+  { symbol: "0700.HK", cn: "腾讯控股", name: "Tencent", price: "480.00", change: 1.24, logo: "/logos/tencent.svg", chain: [["460", "22.80", "4.90"], ["480", "12.40", "9.10"], ["500", "7.85", "14.60"]] },
+  { symbol: "1211.HK", cn: "比亚迪", name: "BYD", price: "260.00", change: -0.41, logo: "/logos/byd.svg", chain: [["240", "22.40", "3.60"], ["260", "10.20", "8.10"], ["280", "6.40", "13.40"]] },
+  { symbol: "3690.HK", cn: "美团", name: "Meituan", price: "120.00", change: 2.35, logo: "/logos/meituan.png", chain: [["110", "12.30", "2.10"], ["120", "6.20", "5.40"], ["130", "2.60", "11.80"]] },
 ];
 
 function MarketCard({ market }: { market: Market }) {
@@ -370,10 +442,12 @@ function MarketCard({ market }: { market: Market }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           <span style={{
-            width: 44, height: 44, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0,
-            background: "var(--hm-chip)", border: "1px solid rgba(var(--hm-gold-c), 0.28)",
+            width: 44, height: 44, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, padding: 6,
+            // fixed light backing, not a theme token: these are the issuer's real brand colours, so they
+            // must not go through --hm-logo-filter (the invert(1) trick built for HanMarket's own mono mark)
+            background: "#FFFFFF", border: "1px solid rgba(var(--hm-gold-c), 0.28)",
           }}>
-            <LogoMark size={30} />
+            <img src={market.logo} alt={`${market.name} logo`} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </span>
           <div>
             <div style={{ fontFamily: "'Noto Sans SC'," + SANS, fontSize: 20, fontWeight: 500, color: TEXT, lineHeight: 1.2 }}>{market.cn}</div>
@@ -628,6 +702,31 @@ function FinalCta() {
   );
 }
 
+/** How It Works: a toggle over two six-step walkthroughs, options and perpetuals, since they diverge
+ * after "deposit" — one has an expiry and a premium, the other leverage and funding. */
+function HowItWorksSection() {
+  const [product, setProduct] = useState<"options" | "perps">("options");
+  return (
+    <section id="how" className="lp-section" style={{ padding: "100px 20px" }}>
+      <RevealHeading eyebrow="How It Works" title="From wallet to trade in six steps" marginBottom={32} />
+      <Reveal y={14} amount={0.6}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 44 }}>
+          <HowItWorksToggle product={product} onChange={setProduct} />
+        </div>
+      </Reveal>
+      {/* re-keying on product restarts the bento's stagger-in animation for the new set of cards */}
+      <div key={product}>
+        <MagicBento
+          glowColor="var(--hm-red-c)"
+          spotlightRadius={400}
+          particleCount={12}
+          cards={product === "options" ? OPTIONS_STEPS : PERPS_STEPS}
+        />
+      </div>
+    </section>
+  );
+}
+
 export default function HanPerpLanding() {
   const location = useLocation();
   const { theme } = useTheme();
@@ -662,13 +761,22 @@ export default function HanPerpLanding() {
     <div style={{ background: SECTION_BG, color: TEXT, fontFamily: SANS }}>
       <style>{`
         @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; } }
-        .tp-trade { grid-template-columns: 44px 1fr 80px 90px 60px; }
+        /* protocol spec panel: a vertical rule between columns on wide screens, a horizontal one once
+           they stack, so the divider always sits between cards rather than around them */
+        .protocol-col + .protocol-col { border-left: 1px solid rgba(var(--hm-line-c), 0.08); }
+        @media (max-width: 900px) {
+          .protocol-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .protocol-col:nth-child(3) { border-left: 1px solid rgba(var(--hm-line-c), 0.08); }
+          .protocol-col:nth-child(3), .protocol-col:nth-child(4) { border-top: 1px solid rgba(var(--hm-line-c), 0.08); }
+        }
+        @media (max-width: 560px) {
+          .protocol-grid { grid-template-columns: 1fr !important; }
+          .protocol-col { border-left: none !important; border-top: 1px solid rgba(var(--hm-line-c), 0.08); }
+          .protocol-col:first-child { border-top: none; }
+        }
         @media (max-width: 640px) {
-          .tp-side, .tp-search { display: none !important; }
-          .tp-trade { grid-template-columns: 38px 1fr auto; }
-          .tp-sm-hide { display: none; }
           .lp-section { padding-top: 64px !important; padding-bottom: 64px !important; }
-          #terminal-preview { padding-top: 24px !important; }
+          #engines { padding-top: 24px !important; }
           #why { padding-top: 0 !important; }
           #start { padding-top: 16px !important; padding-bottom: 72px !important; }
           .lp-footer { flex-direction: column; align-items: flex-start !important; padding: 36px 22px 44px !important; }
@@ -694,10 +802,16 @@ export default function HanPerpLanding() {
       )}
       <HanperpHero />
 
-      {/* TERMINAL PREVIEW — first thing under the clouds: what the product actually looks like */}
-      <section id="terminal-preview" className="lp-section" style={{ position: "relative", zIndex: 6, marginTop: `-${HERO_OVERLAP}`, padding: "40px 20px 80px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <RevealHeading eyebrow="The Terminal" title="One screen for every China equity market" marginBottom={44} />
-        <TradingPreview />
+      {/* THE PROTOCOL — first thing under the clouds: straight into the four deployed contracts, no
+          mocked screenshot standing in for them. The mechanics and the asset/leverage/pool figures are
+          real (checked against the live testnet contracts); the per-position numbers (reserved, greeks,
+          funding) are a worked example, same convention as the Markets section below. */}
+      <section id="engines" className="lp-section" style={{ position: "relative", zIndex: 6, marginTop: `-${HERO_OVERLAP}`, padding: "40px 20px 100px" }}>
+        <RevealHeading eyebrow="The Protocol" title="Four contracts, one engine" marginBottom={48} />
+        <ProtocolPanel />
+        <p style={{ textAlign: "center", fontFamily: SANS, fontSize: 12.5, color: MUTED_2, maxWidth: 520, margin: "20px auto 0" }}>
+          Pool size, leverage and oracle routing are live figures. Reserved amount, greeks and funding are a worked example.
+        </p>
       </section>
 
       {/* BUILT WITH — the real stack, not fake "trusted by" client logos */}
@@ -716,32 +830,11 @@ export default function HanPerpLanding() {
         </Reveal>
       </section>
 
-      {/* HOW IT WORKS — the first real question a first-time visitor has: how do I actually use this */}
-      <section id="how" className="lp-section" style={{ padding: "100px 20px" }}>
-        <RevealHeading eyebrow="How It Works" title="From wallet to trade in six steps" marginBottom={60} />
-        {/* the bento cards stagger in on their own (see MagicBento) */}
-        <div>
-          <MagicBento
-            glowColor="var(--hm-red-c)"
-            spotlightRadius={400}
-            particleCount={12}
-            cards={[
-              { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
-              { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
-              {
-                label: "03", title: "Pick a market", description: "Hong Kong & China equity options, by strike and expiry.",
-                visual: <MarketsVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
-              },
-              {
-                label: "04", title: "Place the trade", description: "Buy a call or put, or sell one to earn the premium. You sign every trade.",
-                visual: <TicketVisual />, background: <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />,
-              },
-              { label: "05", title: "Redeem at expiry", description: "In the money? Redeem your USDC payout as soon as the market settles.", visual: <ExpiryVisual /> },
-              { label: "06", title: "Reclaim collateral", description: "Sellers take back unsold contracts and every dollar not owed to buyers.", visual: <ReclaimVisual /> },
-            ]}
-          />
-        </div>
-      </section>
+      {/* HOW IT WORKS — the first real question a first-time visitor has: how do I actually use this.
+          Options and perps are different enough after step 2 (an expiry and a premium vs. leverage and
+          funding) that one six-step list would have to lie about one of them, so this is a toggle over
+          two, not one list with a caption. */}
+      <HowItWorksSection />
 
       {/* MARKETS — proof the product is real: the actual assets, not just a pitch */}
       <section id="markets" className="lp-section" style={{ padding: "100px 20px", overflowX: "hidden" }}>
@@ -772,13 +865,13 @@ export default function HanPerpLanding() {
       <section id="why" className="lp-section" style={{ padding: "20px 20px 100px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
           {[
-            [0, "Low fees", "Cents of gas on an Ethereum L2, and a small fee on premiums only."],
-            [1, "Transparent", "Collateral, trades and settlement all live onchain and are verifiable on Robinhood Chain."],
-            [2, "Real HK & China equities", "Calls and puts on Tencent, Alibaba, Xiaomi, BYD and more."],
-            [3, "Self-custodied", "Your wallet holds your collateral. HanMarket never takes custody of user funds."],
-          ].map(([v, t, d], i) => (
+            ["Low fees", "Cents of gas on an Ethereum L2, and a small fee on premiums only."],
+            ["Transparent", "Collateral, trades and settlement all live onchain and are verifiable on Robinhood Chain."],
+            ["Real HK & China equities", "Calls and puts on Tencent, Alibaba, Xiaomi, BYD and more."],
+            ["Self-custodied", "Your wallet holds your collateral. HanMarket never takes custody of user funds."],
+          ].map(([t, d], i) => (
             <motion.div
-              key={t as string}
+              key={t}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
@@ -786,7 +879,12 @@ export default function HanPerpLanding() {
               style={{ height: "100%" }}
             >
               <BorderGlow borderRadius={22} backgroundColor={CARD} glowRadius={180} colors={[GOLD]} style={{ padding: "30px 24px", textAlign: "left", height: "100%" }}>
-                <Concentric variant={v as number} />
+                <span style={{
+                  width: 52, height: 52, borderRadius: "50%", display: "grid", placeItems: "center",
+                  background: "var(--hm-chip)", border: "1px solid rgba(var(--hm-gold-c), 0.28)",
+                }}>
+                  <LogoMark size={30} />
+                </span>
                 <h3 style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, margin: "16px 0 8px" }}>{t}</h3>
                 <p style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.55, color: MUTED, margin: 0 }}>{d}</p>
               </BorderGlow>

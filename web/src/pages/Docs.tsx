@@ -14,8 +14,9 @@ const SECTIONS = [
   { id: 'lifecycle', title: 'Option lifecycle', cn: '流程' },
   { id: 'markets', title: 'Markets & hours', cn: '市场' },
   { id: 'buying', title: 'Buying options', cn: '买入' },
-  { id: 'writing', title: 'Writing options', cn: '卖出' },
-  { id: 'settlement', title: 'Settlement', cn: '结算' },
+  { id: 'perps', title: 'Perpetuals', cn: '永续' },
+  { id: 'vault', title: 'The vault', cn: '金库' },
+  { id: 'settlement', title: 'Settlement & liquidation', cn: '结算' },
   { id: 'fees', title: 'Fees & limits', cn: '费用' },
   { id: 'risks', title: 'Risks', cn: '风险' },
   { id: 'glossary', title: 'Glossary', cn: '术语' },
@@ -44,23 +45,43 @@ function Section({ id, index, children }: { id: string; index: number; children:
 }
 
 const LIFECYCLE = [
-  { step: 'Create', cn: '开设', who: 'Protocol', text: 'A market is opened for one asset, call or put, strike, cap and expiry.' },
-  { step: 'Write', cn: '卖出', who: 'Writer', text: 'Locks USDC equal to the cap per contract and sets an ask price.' },
-  { step: 'Buy', cn: '买入', who: 'Trader', text: 'Pays the premium in USDC and receives option tokens in their wallet.' },
+  { step: 'Create', cn: '开设', who: 'Keeper', text: 'A series is opened for one asset, call or put, strike, cap and expiry. There is no order book: the vault is the counterparty from the first trade.' },
+  { step: 'Buy', cn: '买入', who: 'Trader', text: 'Pays the premium in USDC to the vault, at a price it signs on request, and receives option tokens in their wallet.' },
+  { step: 'Sell (optional)', cn: '卖出', who: 'Trader', text: 'Before expiry, a holder can sell tokens back to the vault at its current signed bid to exit early.' },
   { step: 'Expire', cn: '到期', who: 'Market', text: 'Trading stops at expiry, set to the exchange close.' },
   { step: 'Settle', cn: '结算', who: 'Anyone', text: 'The price at expiry, from Chainlink or the HanMarket signer, fixes the payout per contract.' },
-  { step: 'Redeem', cn: '兑付', who: 'Both sides', text: 'Holders redeem the payout; writers claim back the rest of their collateral.' },
+  { step: 'Redeem', cn: '兑付', who: 'Holder', text: 'Holders redeem their payout from the vault. Unexercised value simply stays in the pool.' },
 ];
 
 const GLOSSARY: [string, string][] = [
   ['Strike', 'The reference price in USD. A call pays above it, a put pays below it.'],
-  ['Cap', 'The most one contract can ever pay out. It is also the USDC a writer locks per contract.'],
-  ['Premium', 'The price a buyer pays per contract, in USDC, set by the writer’s ask.'],
+  ['Cap', 'The most one contract can ever pay out. The vault reserves this amount, per contract, the moment it is bought.'],
+  ['Premium', 'The price a buyer pays per contract, in USDC, set by the vault’s signed quote.'],
   ['Contract', 'One option token. It gives exposure to one share of the underlying.'],
   ['Settlement price', 'The USD price used at expiry. HK prices are converted from HKD with the USD/HKD rate.'],
   ['Settlement window', 'How close to expiry an oracle price must be published to be accepted.'],
   ['Oracle grace period', 'Time after expiry before the admin may settle manually if no valid oracle price arrived.'],
-  ['Writer position', 'A writer’s record for one market: contracts minted and sold, and collateral locked.'],
+  ['Leverage', 'Position size divided by the margin backing it. HanMarket perpetuals cap this per market — 3x on BABA-PERP today.'],
+  ['Initial margin', 'The minimum equity, as a share of notional, required to open or grow a position.'],
+  ['Maintenance margin', 'The equity floor below which a position becomes liquidatable.'],
+  ['Funding rate', 'Paid between longs and shorts every funding interval, sized by which side has more open interest. It never leaves the vault.'],
+  ['Liquidation', 'Forced closing of a position whose equity has fallen to the maintenance margin, so the vault is repaid before losses reach it.'],
+  ['Max profit', 'A perpetual position’s profit is capped as a share of its entry notional, the same reasoning as an option’s cap.'],
+];
+
+/* BABA-PERP's live risk parameters, read from RiskManager. The only perpetual market today: every other
+   listing has options but no onchain price feed to run leverage safely against. */
+const PERP_RISK = {
+  maxLeverage: '3x', initialMargin: '33.3%', maintenanceMargin: '10%', maxProfit: '100% of notional',
+  funding: 'Hourly, by open-interest skew', maxPositionNotional: '50,000 USDC', openInterestCap: '500,000 USDC per side',
+};
+
+const PERP_STEPS = [
+  { step: 'Open', cn: '开仓', text: 'Post margin and pick a side. Size is capped by the market’s max position and the initial margin requirement.' },
+  { step: 'Add or reduce', cn: '加仓 / 减仓', text: 'Increase a position (more margin, same side) or partially close it at the current mark price at any time.' },
+  { step: 'Funding', cn: '资金费', text: 'Every hour, the side with more open interest pays the other. It settles into each position’s equity, not a separate payment.' },
+  { step: 'Close', cn: '平仓', text: 'Close the rest of the position whenever you choose. There is no expiry.' },
+  { step: 'Liquidation', cn: '强平', text: 'If equity falls to the maintenance margin first, the keeper closes the position to repay the vault before it does.' },
 ];
 
 /* Worked payoff example. Everything in USD per contract, like the contract itself. */
@@ -75,7 +96,7 @@ function PayoffCalculator() {
   const intrinsic = isCall ? Math.max(settle - strike, 0) : Math.max(strike - settle, 0);
   const payout = Math.min(intrinsic, effCap);
   const buyerPnl = payout - premium;
-  const writerPnl = premium - payout;
+  const vaultPnl = premium - payout;
   const fmt = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toFixed(2)}`;
 
   const num = (id: string, label: string, value: number, set: (n: number) => void, step = 0.5) => (
@@ -103,8 +124,8 @@ function PayoffCalculator() {
       <dl className="dx-calc-out">
         <div><dt>Payout</dt><dd>{fmt(payout)}</dd></div>
         <div><dt>Buyer P&amp;L</dt><dd className={buyerPnl >= 0 ? 'is-up' : 'is-down'}>{fmt(buyerPnl)}</dd></div>
-        <div><dt>Writer P&amp;L</dt><dd className={writerPnl >= 0 ? 'is-up' : 'is-down'}>{fmt(writerPnl)}</dd></div>
-        <div><dt>Collateral locked</dt><dd>{fmt(effCap)}</dd></div>
+        <div><dt>Vault P&amp;L</dt><dd className={vaultPnl >= 0 ? 'is-up' : 'is-down'}>{fmt(vaultPnl)}</dd></div>
+        <div><dt>Vault reserves</dt><dd>{fmt(effCap)}</dd></div>
       </dl>
       {!isCall && cap > strike && <p className="dx-note">A put can never pay more than its strike, so its cap is limited to {fmt(strike)}.</p>}
     </div>
@@ -183,8 +204,9 @@ export const Docs: FC = () => {
           <p className="dx-kicker">Documentation <span className="dx-cn-inline">文档</span></p>
           <h1>How HanMarket works</h1>
           <p className="dx-lead">
-            Cash-settled options on Hong Kong and China equities, collateralised and paid out in USDC on Robinhood Chain.
-            This guide covers the full life of a trade, from writing a contract to redeeming it after expiry.
+            Options and perpetuals on Hong Kong and China equities, collateralised and paid out in USDC on Robinhood
+            Chain, against a single onchain vault. This guide covers the full life of a trade, from buying or
+            opening a position to redeeming or closing it.
           </p>
           <ul className="dx-meta">
             <li>Protocol v0.2</li>
@@ -222,24 +244,26 @@ export const Docs: FC = () => {
         <main className="dx-content">
           <Section id="overview" index={0}>
             <p>
-              HanMarket lets you take a view on companies like Tencent, Alibaba or BYD without holding the shares.
-              Each market is a <strong>call</strong> or a <strong>put</strong> on one stock, with a strike price, a cap and an expiry.
+              HanMarket lets you take a view on companies like Tencent, Alibaba or BYD without holding the shares,
+              two ways: <strong>options</strong> (a call or a put on one stock, with a strike, a cap and an expiry)
+              and, on BABA today, a <strong>perpetual</strong> (leveraged long or short, no expiry).
             </p>
             <p>
-              Nothing is ever delivered. When the option expires, the market settles on the stock price at expiry
-              and pays the difference in USDC. Every contract is backed in full by collateral a writer
-              locked when the option was created, so payouts never depend on anyone paying later.
+              There is no order book and no counterparty to find. A single USDC vault is the other side of every
+              trade: it quotes the price, reserves the most it could ever owe before accepting the trade, and pays
+              out from that same pool. Nothing is ever delivered — options settle in cash at expiry, perpetuals mark
+              to the oracle price and can be closed at any time.
             </p>
             <div className="dx-callouts">
               <div><span className="dx-callout-k">Collateral</span><span>USDC only</span></div>
-              <div><span className="dx-callout-k">Settlement</span><span>Cash, at expiry</span></div>
+              <div><span className="dx-callout-k">Counterparty</span><span>The vault, always</span></div>
               <div><span className="dx-callout-k">Oracle</span><span>Chainlink + HanMarket signer</span></div>
-              <div><span className="dx-callout-k">Style</span><span>European, capped</span></div>
+              <div><span className="dx-callout-k">Options</span><span>European, capped payout</span></div>
             </div>
           </Section>
 
           <Section id="lifecycle" index={1}>
-            <p>Every option goes through the same six steps. Only buying and writing need you to act before expiry.</p>
+            <p>Every option goes through the same steps. Only buying (and, optionally, selling early) need you to act before expiry.</p>
             <ol className="dx-steps">
               {LIFECYCLE.map((s, i) => (
                 <motion.li
@@ -289,72 +313,109 @@ export const Docs: FC = () => {
               <li><strong>Call</strong> pays <span className="dx-formula">min(price − strike, cap)</span> when the price at expiry is above the strike.</li>
               <li><strong>Put</strong> pays <span className="dx-formula">min(strike − price, cap)</span> when the price at expiry is below the strike.</li>
               <li><strong>Maximum loss</strong> is the premium you paid. <strong>Maximum gain</strong> is the cap minus the premium.</li>
-              <li>Every order sets the highest premium you accept, so a writer cannot raise the price while your transaction is in flight.</li>
+              <li>Every order sets the worst premium you accept, so the vault’s quote cannot move against you while your transaction is in flight.</li>
+              <li>You can exit before expiry by selling your tokens back to the vault at its current signed bid, at any liquid strike.</li>
             </ul>
             <PayoffCalculator />
           </Section>
 
-          <Section id="writing" index={4}>
+          <Section id="perps" index={4}>
             <p>
-              Writers supply the options and earn the premium. To write, you lock the cap in USDC for each contract
-              and choose your ask. Options you have written sit in an escrow until someone buys them.
+              <strong>BABA-PERP</strong> is the one perpetual market today — the one stock with a Chainlink feed
+              trustworthy enough to run leverage against safely. Every other listing has options only, for now.
             </p>
-            <ul className="dx-list">
-              <li><strong>Collateral:</strong> contracts × cap, rounded up to the nearest micro-USDC.</li>
-              <li><strong>Premium:</strong> paid to your wallet the moment a buyer fills your ask, minus the protocol fee.</li>
-              <li><strong>Change your ask</strong> at any time before settlement.</li>
-              <li><strong>Cancel unsold contracts</strong> to burn them and take their collateral back straight away.</li>
-              <li><strong>After settlement</strong>, claim what is left: your collateral minus the payout owed on the contracts you sold.</li>
-            </ul>
-            <div className="dx-example">
-              <span className="dx-kicker">Example</span>
-              <p>
-                You write 10 Tencent calls with a $55 strike and a $10 cap, asking $1.80. You lock <strong>$100</strong>.
-                A buyer takes all 10 and you receive <strong>$18</strong> less the fee. Tencent settles at $60, so each
-                contract pays $5: holders redeem <strong>$50</strong> and you claim back the other <strong>$50</strong>.
-              </p>
+            <ol className="dx-steps">
+              {PERP_STEPS.map((s, i) => (
+                <motion.li
+                  key={s.step}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={{ duration: 0.55, delay: i * 0.07, ease: EASE }}
+                >
+                  <span className="dx-step-cn" aria-hidden="true">{s.cn}</span>
+                  <span className="dx-step-name">{s.step}</span>
+                  <span className="dx-step-who">Trader</span>
+                  <span className="dx-step-text">{s.text}</span>
+                </motion.li>
+              ))}
+            </ol>
+            <div className="dx-callouts">
+              <div><span className="dx-callout-k">Max leverage</span><span>{PERP_RISK.maxLeverage}</span></div>
+              <div><span className="dx-callout-k">Initial margin</span><span>{PERP_RISK.initialMargin} of notional</span></div>
+              <div><span className="dx-callout-k">Maintenance margin</span><span>{PERP_RISK.maintenanceMargin} of notional</span></div>
+              <div><span className="dx-callout-k">Max profit</span><span>{PERP_RISK.maxProfit}</span></div>
+              <div><span className="dx-callout-k">Funding</span><span>{PERP_RISK.funding}</span></div>
+              <div><span className="dx-callout-k">Max position</span><span>{PERP_RISK.maxPositionNotional}</span></div>
             </div>
+            <p className="dx-small">
+              Funding is not fixed: the side with more open interest pays the other, so it can run either
+              direction. It is credited or debited to each position’s equity every interval, not sent as a
+              separate transaction.
+            </p>
           </Section>
 
-          <Section id="settlement" index={5}>
+          <Section id="vault" index={5}>
             <p>
-              Expiry is set to the exchange close. A HanMarket keeper settles every expired market automatically, so you
-              normally only need to redeem or claim. How the price is fixed depends on the stock:
+              There is no writer to find and no order to fill: <strong>the vault itself</strong> is the counterparty
+              to every option and every perpetual, and anyone can fund it. Deposit USDC to receive <strong>hmLP</strong>,
+              a share of the pool that grows as the vault collects premiums, trading fees and funding.
+            </p>
+            <ul className="dx-list">
+              <li><strong>Deposit</strong> USDC at any time to mint hmLP at the pool’s current share price.</li>
+              <li><strong>New deposits lock for 24 hours</strong> before they can be withdrawn, so a deposit cannot dodge a loss already in motion.</li>
+              <li><strong>Withdrawals are capped by free liquidity</strong> — the pool minus whatever is reserved for open options and perpetuals — not by the pool’s total size.</li>
+              <li><strong>hmLP is not principal-protected.</strong> Its share price falls if traders are net profitable over a period, the same way it rises when the vault collects more in premiums and fees than it pays out.</li>
+            </ul>
+          </Section>
+
+          <Section id="settlement" index={6}>
+            <p>
+              Expiry is set to the exchange close. A HanMarket keeper settles every expired option market automatically,
+              so you normally only need to redeem. How the price is fixed depends on the stock:
             </p>
             <ul className="dx-list">
               <li><strong>Alibaba (BABA)</strong> uses Chainlink’s <em>Robinhood BABA / USD</em> feed. The contract only accepts the last feed round published before expiry, so the price cannot be picked or changed. Anyone can submit it.</li>
               <li><strong>Every other stock</strong> has no onchain feed on Robinhood Chain yet. It settles with a price signed by the HanMarket price signer, taken from market data at the exchange close (HK prices converted at USD/HKD). The contract checks the signature and the timing, but you are trusting that price.</li>
               <li>Each market in the terminal is labelled <strong>Chainlink</strong> or <strong>HanMarket</strong> so you know which applies before you trade.</li>
               <li>If no valid price exists (a feed outage or an exchange holiday), the admin may settle manually, but only after the market’s <strong>oracle grace period</strong>. Manual settlements are marked on-chain.</li>
-              <li>Settlement is final and happens once. Redeeming and claiming have no deadline.</li>
+              <li>Settlement is final and happens once. Redeeming has no deadline.</li>
             </ul>
+            <p>
+              BABA-PERP has no settlement or expiry — it has <strong>liquidation</strong> instead. The keeper checks
+              every open position against the oracle price; once equity reaches the maintenance margin, it force-closes
+              the position at the current price so the loss stops before it can exceed the margin posted.
+            </p>
           </Section>
 
-          <Section id="fees" index={6}>
+          <Section id="fees" index={7}>
             <div className="dx-table-scroll">
               <table className="dx-table">
                 <tbody>
-                  <tr><th scope="row">Trading fee</th><td>A share of each premium, paid by the buyer to the treasury. Set by the protocol, capped at 5%.</td></tr>
-                  <tr><th scope="row">Writing</th><td>No fee. You only pay gas, plus a one-time USDC approval the first time you trade.</td></tr>
-                  <tr><th scope="row">Redeeming &amp; claiming</th><td>No fee beyond gas.</td></tr>
+                  <tr><th scope="row">Opening an option</th><td>1% of the premium, paid to the treasury and the vault.</td></tr>
+                  <tr><th scope="row">Closing an option</th><td>1% of the premium, whether by selling early or redeeming at settlement.</td></tr>
+                  <tr><th scope="row">Perpetual trading</th><td>0.08% of notional per trade, on BABA-PERP.</td></tr>
+                  <tr><th scope="row">Liquidation</th><td>0.5% of notional, to whoever calls the liquidation.</td></tr>
+                  <tr><th scope="row">Depositing to the vault</th><td>No fee. You only pay gas, plus a one-time USDC approval the first time you trade.</td></tr>
                   <tr><th scope="row">Network fees</th><td>Paid in ETH on Robinhood Chain, usually a fraction of a cent per transaction.</td></tr>
                 </tbody>
               </table>
             </div>
           </Section>
 
-          <Section id="risks" index={7}>
+          <Section id="risks" index={8}>
             <ul className="dx-list dx-risks">
               <li><strong>Unaudited code.</strong> The contract has not had an external audit. Use testnet funds only.</li>
               <li><strong>Price risk.</strong> Alibaba relies on Chainlink; every other stock relies on the HanMarket price signer. A wrong or missing price affects every holder of that market.</li>
               <li><strong>Admin fallback.</strong> If the oracle fails, a manual settlement price is trusted after the grace period.</li>
-              <li><strong>No early exit.</strong> Options settle at expiry. Before then you can only sell by transferring tokens to someone else.</li>
-              <li><strong>Not shares.</strong> Options give no ownership, dividends or voting rights in the company.</li>
+              <li><strong>Leverage and liquidation.</strong> A leveraged perpetual can be liquidated for its full margin if the price moves against it far enough, even briefly.</li>
+              <li><strong>Vault risk, for depositors.</strong> hmLP’s value falls if traders are net profitable over a period — a liquidity provider is the counterparty to every winning trade.</li>
+              <li><strong>Not shares.</strong> Options and perpetuals give no ownership, dividends or voting rights in the company.</li>
               <li><strong>Restricted regions.</strong> Not offered to persons in the United States, mainland China or Hong Kong.</li>
             </ul>
           </Section>
 
-          <Section id="glossary" index={8}>
+          <Section id="glossary" index={9}>
             <dl className="dx-glossary">
               {GLOSSARY.map(([term, def]) => (
                 <div key={term}>

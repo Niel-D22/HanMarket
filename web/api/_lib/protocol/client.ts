@@ -6,12 +6,18 @@ import { parseDeployment, type Deployment, type NetworkKey } from './deployments
 
 declare const process: { env: Record<string, string | undefined> };
 
+// Multicall3 at its canonical address, present on both networks (eth_getCode returns the contract). With it
+// registered, viem folds many contract reads into one eth_call: the option chain and every quote read all
+// of the series, and doing that one call at a time (200+ per request) made the public RPC slow to answer.
+const multicall3 = { address: '0xcA11bde05977b3631167028862bE2a173976CA11' } as const;
+
 const chains: Record<NetworkKey, Chain> = {
   testnet: defineChain({
     id: 46630,
     name: 'Robinhood Chain Testnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [process.env.ROBINHOOD_TESTNET_RPC || 'https://robinhood-sepolia-rpc.publicnode.com'] } },
+    contracts: { multicall3 },
     testnet: true,
   }),
   mainnet: defineChain({
@@ -19,6 +25,7 @@ const chains: Record<NetworkKey, Chain> = {
     name: 'Robinhood Chain',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [process.env.ROBINHOOD_MAINNET_RPC || 'https://robinhood.drpc.org'] } },
+    contracts: { multicall3 },
   }),
 };
 
@@ -71,18 +78,19 @@ export async function loadProtocol(network: NetworkKey, d: Deployment): Promise<
   const client = clientFor(network);
 
   const assetCount = Number(await client.readContract({ address: d.marketRegistry, abi: registryAbi, functionName: 'assetCount' }));
-  const assets = (await Promise.all(
-    Array.from({ length: assetCount }, (_, i) =>
-      client.readContract({ address: d.marketRegistry, abi: registryAbi, functionName: 'getAsset', args: [i] }),
-    ),
-  )).map((a, i): AssetRow => ({ id: i, symbol: a.symbol, oracleId: a.oracleId, optionsEnabled: a.optionsEnabled, perpsEnabled: a.perpsEnabled, active: a.active }));
+  // batchSize is bytes of calldata per aggregate call; the default 1024 would split a couple of hundred reads into a dozen
+  const assets = (await client.multicall({
+    contracts: Array.from({ length: assetCount }, (_, i) => ({ address: d.marketRegistry, abi: registryAbi, functionName: 'getAsset', args: [i] } as const)),
+    allowFailure: false,
+    batchSize: 65_536,
+  })).map((a, i): AssetRow => ({ id: i, symbol: a.symbol, oracleId: a.oracleId, optionsEnabled: a.optionsEnabled, perpsEnabled: a.perpsEnabled, active: a.active }));
 
   const seriesCount = Number(await client.readContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'seriesCount' }));
-  const raw = await Promise.all(
-    Array.from({ length: seriesCount }, (_, i) =>
-      client.readContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'getSeries', args: [BigInt(i)] }),
-    ),
-  );
+  const raw = await client.multicall({
+    contracts: Array.from({ length: seriesCount }, (_, i) => ({ address: d.optionsEngine, abi: optionsAbi, functionName: 'getSeries', args: [BigInt(i)] } as const)),
+    allowFailure: false,
+    batchSize: 65_536,
+  });
   const series = raw.map((s, i): SeriesRow => ({
     id: i,
     assetId: s.assetId,

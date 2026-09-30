@@ -34,7 +34,7 @@ export const Privacy: FC = () => {
             2. Blockchain Data
           </h2>
           <p style={{ marginBottom: '2rem' }}>
-            By using the <LogoText /> protocol, you understand that all transaction data—including your public wallet address and trading history—is permanently recorded on the Robinhood Chain blockchain, which is a public and immutable ledger. We have no control over this data.
+            By using the <LogoText /> protocol, you understand that all transaction data, including your public wallet address and trading history, is permanently recorded on the Robinhood Chain blockchain, which is a public and immutable ledger. We have no control over this data.
           </p>
 
           <h2 style={{ borderBottom: '1px solid rgba(var(--hm-card-c), 0.1)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: '#FFF' }}>

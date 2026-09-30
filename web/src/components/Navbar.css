@@ -64,7 +64,16 @@
   transition:
     background 0.35s ease,
     padding 0.35s ease,
-    border-color 0.35s ease;
+    border-color 0.35s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* slid up out of view while the visitor scrolls down (Navbar.tsx decides when) */
+.navbar-landing.navbar-tucked {
+  transform: translateY(-100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .navbar-landing { transition: none; }
 }
 
 /* transparent over the hero art; once content scrolls underneath, a solid ivory bar keeps it legible */
@@ -104,6 +113,12 @@
   font-size: 0.9rem;
 }
 
+/* "How It Works" is the only three-word label here, and a squeezed flex item can wrap its own text at a
+   word boundary even though the row itself has room. The fix is this, not more horizontal space. */
+.navbar-links a {
+  white-space: nowrap;
+}
+
 .navbar-actions {
   display: flex;
   gap: 1rem;
@@ -120,8 +135,11 @@
   padding: 0 0.25rem;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
+/* Mobile Responsiveness. 768px used to be the cutoff, but the desktop grid's clamp(20px, 8vw, 150px) side
+   padding plus the wordmark, four nav links, theme toggle and Launch App button don't actually fit in the
+   768–900px band: Launch App ran off the right edge at 820px. Raised so that whole band gets the simpler
+   two-column (logo + hamburger) layout instead of a cramped desktop one. */
+@media (max-width: 900px) {
   .navbar-container {
     padding: 0.5rem 1rem;
   }
@@ -174,8 +192,8 @@
   }
 }
 
-@media (max-width: 420px) {
-  /* keep the bar to wordmark + menu; Launch App lives in the menu */
+@media (max-width: 520px) {
+  /* keep the bar to wordmark + menu; Launch App lives in the menu (at 430px the four controls overflowed) */
   .navbar-landing .navbar-launch {
     display: none;
   }

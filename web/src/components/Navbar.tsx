@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import type { FC, ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useNetwork } from '../contexts/NetworkContext';
 import { ThemeToggle } from '../theme/ThemeProvider';
+import { X_URL } from '../config/social';
 import './Navbar.css';
-
-// The brand's X account; the icon stays hidden until this is set in web/.env
-const X_URL = import.meta.env.VITE_X_URL as string | undefined;
 
 interface NavbarProps {
   variant?: 'landing' | 'terminal';
@@ -25,26 +23,54 @@ export const LogoMark: FC<{ size?: number | string; alt?: string }> = ({ size = 
   <img src="/brand/hanmarket-mark.png" alt={alt} width={238} height={238} style={{ width: size, height: size, display: 'block', flexShrink: 0 }} />
 );
 
+/** the bar never tucks away this close to the top of the page */
+const TUCK_BELOW = 120;
+/** px of scroll in one event that count as a direction, not jitter */
+const TUCK_STEP = 4;
+/** once scrolling stops for this long, the bar comes back */
+const SHOW_AFTER_REST_MS = 700;
+
 export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  // out of the way while the visitor reads on down; back when they scroll up, stop, or return to the top
+  const [isTucked, setIsTucked] = useState(false);
   const isTerminal = variant === 'terminal';
   const { network, setNetwork } = useNetwork();
+  // the landing page's hero carries the coin itself (and it travels down the page), so the bar shows only the name there
+  const showMark = useLocation().pathname !== '/';
 
   useEffect(() => {
     if (isTerminal) return;
-    const onScroll = () => setIsScrolled(window.scrollY > 8);
+    let lastY = window.scrollY;
+    let rest: number | undefined;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY;
+      lastY = y;
+      setIsScrolled(y > 8);
+      if (y < TUCK_BELOW || delta < -TUCK_STEP) setIsTucked(false);
+      else if (delta > TUCK_STEP) setIsTucked(true);
+      window.clearTimeout(rest);
+      rest = window.setTimeout(() => setIsTucked(false), SHOW_AFTER_REST_MS);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.clearTimeout(rest);
+    };
   }, [isTerminal]);
 
   return (
     <>
-      <nav className={`navbar-container ${isTerminal ? 'navbar-terminal' : 'navbar-landing'} ${isScrolled ? 'navbar-scrolled' : ''}`}>
+      <nav
+        className={`navbar-container ${isTerminal ? 'navbar-terminal' : 'navbar-landing'} ${isScrolled ? 'navbar-scrolled' : ''} ${isTucked && !isMobileMenuOpen ? 'navbar-tucked' : ''}`}
+        onFocus={() => setIsTucked(false)} // tabbing into a tucked bar brings it back
+      >
       <Link to="/" style={{ textDecoration: 'none' }}>
         <div className="navbar-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <LogoMark size="1.9rem" />
+          {showMark && <LogoMark size="1.9rem" />}
           <div style={{ fontSize: '1.5rem', color: 'var(--hm-text)' }}>
             <LogoText />
           </div>
@@ -105,7 +131,9 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
         <a 
           href={X_URL} 
           target="_blank" 
-          rel="noreferrer" 
+          rel="noreferrer noopener" 
+          aria-label="HanMarket on X" 
+          title="HanMarket on X" 
           style={{ 
             display: 'flex', 
             alignItems: 'center', 

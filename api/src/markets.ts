@@ -8,7 +8,7 @@
 import { keccak256, encodeAbiParameters, type PrivateKeyAccount } from 'viem';
 import { ASSETS } from './assets';
 import { getQuotes } from './prices';
-import { NETWORKS, accountFromEnv, publicClientFor, walletClientFor, type NetworkKey } from './chain';
+import { NETWORKS, networkAccount, publicClientFor, walletClientFor, type NetworkKey } from './chain';
 import { optionsAbi, oracleAbi, registryAbi } from './protocol/abis';
 import { logger } from './logger';
 
@@ -52,7 +52,7 @@ export interface CreateMarketsOptions {
   /**
    * Stop once the keeper's balance would fall below this, in wei. Creating a chain for every asset costs
    * far more gas than a day of keeping, and a keeper that cannot pay for gas stops updating prices,
-   * settling options and liquidating — so the keeper's own budget comes first.
+   * settling options and liquidating, so the keeper's own budget comes first.
    */
   gasFloorWei?: bigint;
   log?: (line: string) => void;
@@ -72,8 +72,8 @@ export async function createMarkets(opts: CreateMarketsOptions): Promise<CreateM
 
   const d = NETWORKS[network].deployment;
   if (!d) throw new Error(`${network.toUpperCase()}_DEPLOYMENT is not set`);
-  const keeper = accountFromEnv('KEEPER_PRIVATE_KEY');
-  if (!keeper && !dryRun) throw new Error('KEEPER_PRIVATE_KEY is not set');
+  const keeper = networkAccount('KEEPER_PRIVATE_KEY', network);
+  if (!keeper && !dryRun) throw new Error(`${network === 'mainnet' ? 'MAINNET_' : ''}KEEPER_PRIVATE_KEY is not set`);
 
   const client = publicClientFor(network);
   const wallet = keeper ? walletClientFor(network, keeper) : null;

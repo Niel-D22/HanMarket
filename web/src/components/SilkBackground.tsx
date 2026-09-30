@@ -246,7 +246,7 @@ export const SilkBackground: React.FC<SilkBackgroundProps> = ({
       document.removeEventListener('visibilitychange', onVisibilityChange);
       gl.deleteProgram(program);
     };
-  }, [color, speed, intensity, scale]);
+  }, [color, bgColor, speed, intensity, scale]);
 
   return (
     <canvas

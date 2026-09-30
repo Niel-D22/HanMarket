@@ -22,7 +22,10 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ success: false, error: 'network, seriesId, side and contracts are required' });
   }
   const d = deploymentFor(network);
-  const key = process.env.QUOTE_SIGNER_KEY?.trim();
+  // mainnet quotes need their own key (it must equal the mainnet OptionsEngine's quoteSigner); testnet keeps the plain name
+  const key = (network === 'mainnet'
+    ? process.env.MAINNET_QUOTE_SIGNER_KEY
+    : process.env.TESTNET_QUOTE_SIGNER_KEY || process.env.QUOTE_SIGNER_KEY)?.trim();
   if (!d || !key) return res.status(503).json({ success: false, error: 'Quoting is not configured on this network' });
 
   try {

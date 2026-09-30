@@ -4,7 +4,7 @@ import { gsap } from "gsap";
 import { useInView } from "motion/react";
 
 /* ============================================================================
-   MagicBento — bento card grid with a cursor spotlight, per-card border glow,
+   MagicBento: bento card grid with a cursor spotlight, per-card border glow,
    floating particles and a click ripple (GSAP). Ported from the React Bits
    component to this project's plain-CSS stack: Tailwind classes became the
    .mb-* rules below, and cards take real content (`visual`) plus an optional

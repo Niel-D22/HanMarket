@@ -59,3 +59,7 @@ d3e54v103j8qbb.cloudfront.net/
 cryptox-oly.webflow.io/
 Referensi UI UX/
 download-report.txt
+
+# mainnet launch: the filled-in inputs stay local, and the fork rehearsal leaves its files here
+contracts/script/mainnet/mainnet.env
+contracts/deployments/.rehearsal/

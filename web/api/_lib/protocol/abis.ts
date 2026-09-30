@@ -94,6 +94,17 @@ export const optionsEventsAbi = parseAbi([
   'event OptionExercised(uint256 indexed seriesId, address indexed account, uint256 qty, uint256 payout, uint256 fee)',
 ]);
 
+// Money moving between a wallet and the vault. Traders' collateral and LPs' liquidity are indexed by different names
+// (user / provider), so they are read as two queries.
+export const vaultTransferEventsAbi = parseAbi([
+  'event CollateralDeposited(address indexed user, uint256 amount)',
+  'event CollateralWithdrawn(address indexed user, uint256 amount)',
+]);
+export const vaultLiquidityEventsAbi = parseAbi([
+  'event LiquidityAdded(address indexed provider, uint256 amount, uint256 shares)',
+  'event LiquidityRemoved(address indexed provider, uint256 shares, uint256 amount)',
+]);
+
 export const erc20Abi = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',

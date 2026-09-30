@@ -2,11 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { usePrices } from '../hooks/usePrices';
 import { optionsAbi, perpsAbi } from '../../api/_lib/protocol/abis';
-import { Sidebar, TopBar, type Product, type View } from './Chrome';
-import { TradeCenter } from './TradeView';
+import { Sidebar, Ticker, TopBar, type Product, type View } from './Chrome';
+import { TradeCenter, type BottomTab } from './TradeView';
 import { OrderTerminal } from './OrderTerminal';
-import { MarketsView, PortfolioView, TxToast, VaultView } from './Views';
+import { useOptionsFlow } from './flowData';
+import { ActivityView, MarketsView, PortfolioView, TxToast, VaultView } from './Views';
+import { StrategiesView } from './Strategies';
 import type { SelectedOption } from './options';
+import { usePanels } from './panels';
+import { useShortcuts } from './keys';
+import { ShortcutsHelp } from './Shortcuts';
 import {
   optionLabel, toUsd6, useAccountState, useAllSeries, useHistory, useOptionHoldings, usePerpPositions,
   useProtocol, useProtocolState, useTx, type OptionHolding, type PerpPosition,
@@ -24,9 +29,11 @@ export function TerminalPage() {
   const [view, setView] = useState<View>('trade');
   const [symbol, setSymbol] = useState('BABA');
   const [product, setProduct] = useState<Product>('perps');
-  const [bottom, setBottom] = useState<'chain' | 'positions' | 'options' | 'history'>('chain');
+  const [bottom, setBottom] = useState<BottomTab>('chain');
   const [selected, setSelected] = useState<SelectedOption | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const { panels, setPanel } = usePanels();
 
   const { data: state } = useProtocolState();
   const { data: account } = useAccountState(address);
@@ -34,7 +41,10 @@ export function TerminalPage() {
   const { data: positions } = usePerpPositions(address, state?.perps);
   const { data: holdings } = useOptionHoldings(address, series);
   const symbols = state?.assets.map((a) => a.symbol) ?? [];
-  const { data: history } = useHistory(address, state?.perps, series, symbols);
+  const { data: history, error: historyError } = useHistory(address, state?.perps, series, symbols);
+  // Warm the Options Flow read as soon as the terminal opens: its first pass over the chain's history is
+  // slow on a free RPC, and this way it is usually done by the time the tab is opened (same query, shared).
+  useOptionsFlow(state);
   const tx = useTx();
   const busy = tx.state.stage === 'wallet' || tx.state.stage === 'confirming' || tx.state.stage === 'preparing';
 
@@ -48,14 +58,49 @@ export function TerminalPage() {
     setSymbol(s);
     setSelected(null);
     setView('trade');
-    if (p) setProduct(p);
-  }, []);
+    if (p) {
+      setProduct(p);
+    } else {
+      // No explicit product: the top search bar and a watchlist row both select this way. Every
+      // market has options, but only some have a perpetual; staying on the Perpetuals tab
+      // for anything else would land on "No perpetual for X" instead of the trade the symbol can
+      // actually do, so fall back to Options whenever the new symbol has no perp market.
+      // Before the market list has loaded nothing is known yet, so the tab stays as it is.
+      const perps = state?.perps;
+      setProduct((prev) => (prev === 'perps' && perps && !perps.some((m) => m.assetSymbol === s) ? 'options' : prev));
+    }
+  }, [state?.perps]);
 
-  /** Opens the panel a finished transaction left its result in, so the toast can take the trader there. */
-  const goTo = useCallback((tab: 'positions' | 'options' | 'history') => {
+  /** Opens a tab of the bottom panel, unfolding the panel if it was collapsed. */
+  const openBottom = useCallback((tab: BottomTab) => {
     setView('trade');
     setBottom(tab);
-  }, []);
+    setPanel('bottom', true);
+  }, [setPanel]);
+  /** Opens the panel a finished transaction left its result in, so the toast can take the trader there. */
+  const goTo = openBottom;
+
+  // Keyboard navigation; the keys are listed in the help dialog (?)
+  useShortcuts({
+    c: () => openBottom('chain'),
+    f: () => openBottom('flow'),
+    u: () => openBottom('funding'),
+    p: () => openBottom('positions'),
+    o: () => openBottom('options'),
+    h: () => openBottom('history'),
+    '1': () => setView('trade'),
+    '2': () => setView('markets'),
+    '3': () => setView('portfolio'),
+    '4': () => setView('vault'),
+    '5': () => setView('strategies'),
+    '6': () => setView('activity'),
+    '/': () => document.getElementById('tm-search')?.focus(),
+    '[': () => setPanel('side'),
+    ']': () => setPanel('right'),
+    b: () => setPanel('bottom'),
+    t: () => setPanel('trades'),
+    '?': () => setHelpOpen(true),
+  });
 
   const closePerp = (p: PerpPosition) => {
     if (!d) return;
@@ -75,6 +120,7 @@ export function TerminalPage() {
     setSymbol(assetSymbol);
     setProduct('options');
     setBottom('chain');
+    setPanel('right', true); // the ticket that sells it lives in the order terminal
     setSelected({
       seriesId: h.id, symbol: assetSymbol, isCall: h.isCall, strike: h.strike, expiry: h.expiry, cap: h.cap,
       side: 'sell', bid: 0, ask: 0, iv: 0, delta: 0,
@@ -93,11 +139,16 @@ export function TerminalPage() {
 
   return (
     <div className="tm">
-      <TopBar network={network} setNetwork={setNetwork} onSelect={(s) => select(s)} onMenu={() => setMenuOpen((o) => !o)} />
-      <div className="tm-body">
+      <Ticker quotes={quotes} onSelect={(s) => select(s)} />
+      <TopBar
+        network={network} setNetwork={setNetwork} onSelect={(s) => select(s)} onMenu={() => setMenuOpen((o) => !o)}
+        panels={panels} onPanel={setPanel} onHelp={() => setHelpOpen(true)}
+      />
+      <div className={`tm-body ${panels.side ? '' : 'no-side'} ${panels.right ? '' : 'no-right'}`}>
         <Sidebar
           view={view} setView={setView} symbol={symbol} product={product} onSelect={select}
-          quotes={quotes} perps={state?.perps} open={menuOpen} onClose={() => setMenuOpen(false)}
+          quotes={quotes} perps={state?.perps} network={network} deployed={deployed} onSwitchTestnet={() => setNetwork('testnet')}
+          open={menuOpen} onClose={() => setMenuOpen(false)}
         />
 
         {view === 'trade' && (
@@ -105,15 +156,16 @@ export function TerminalPage() {
             <TradeCenter
               symbol={symbol} product={product} quote={quotes[symbol]} perp={perp} state={state}
               selected={selected}
-              onPick={(o) => { setSelected(o); setProduct('options'); }}
-              bottom={bottom} setBottom={setBottom}
-              account={address} positions={positions} holdings={holdings} history={history}
+              onPick={(o) => { setSelected(o); setProduct('options'); setPanel('right', true); }}
+              onPickPerp={(s) => select(s, 'perps')}
+              bottom={bottom} setBottom={setBottom} panels={panels} setPanel={setPanel}
+              account={address} positions={positions} holdings={holdings} history={history} historyError={historyError}
               onClosePerp={closePerp} onSellOption={sellOption} onRedeem={redeem}
               busy={busy} explorer={tx.explorer} deployed={deployed}
               onSwitchTestnet={() => setNetwork('testnet')} network={network}
             />
             <OrderTerminal
-              symbol={symbol} product={product} setProduct={setProduct} perp={perp} fees={state?.fees}
+              symbol={symbol} product={product} setProduct={setProduct} perp={perp} perpsLoaded={!!state} fees={state?.fees}
               account={account} address={address} option={selected} holding={holding}
               onClearOption={() => setSelected(null)}
               onOptionSide={(side) => setSelected((o) => (o ? { ...o, side } : o))}
@@ -130,11 +182,28 @@ export function TerminalPage() {
                 busy={busy} explorer={tx.explorer} onClosePerp={closePerp} onSellOption={sellOption} onRedeem={redeem}
               />
             )}
+            {view === 'strategies' && (
+              <StrategiesView
+                key={symbol}
+                symbol={symbol}
+                fees={state?.fees}
+                onTradeLeg={(o) => {
+                  setSymbol(o.symbol);
+                  setSelected(o);
+                  setProduct('options');
+                  setView('trade');
+                  setBottom('chain');
+                  setPanel('right', true);
+                }}
+              />
+            )}
+            {view === 'activity' && <ActivityView address={address} history={history} error={historyError} explorer={tx.explorer} />}
             {view === 'vault' && <VaultView address={address} account={account} tx={tx} deployed={deployed} />}
           </main>
         )}
       </div>
       <TxToast state={tx.state} explorer={tx.explorer} onClose={tx.reset} />
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

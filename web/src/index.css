@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono&display=swap');
 
 :root {
-  /* LanternX brand — sampled directly from public/LogoOnly.png */
+  /* LanternX brand, sampled directly from public/LogoOnly.png */
   --brand-red: #FA004A;
   --brand-orange: #FF8703;
   --brand-gold: #FDC747;
@@ -14,9 +14,9 @@
   --text-secondary: #B8A99E; /* warmed grey, not pure #A3A3A3 */
   --accent: #FF8703;
 
-  /* China market convention: red = up, green = down (opposite of US charts) */
-  --price-up: #FF3B30;
-  --price-down: #1FB177;
+  /* green = up, red = down, as on the terminal */
+  --price-up: #1FB177;
+  --price-down: #FF3B30;
 }
 
 * {
@@ -27,6 +27,22 @@
 
 html {
   scroll-behavior: smooth;
+  /* iPhone and iPad */
+  -webkit-text-size-adjust: 100%;          /* no font inflation when the phone turns sideways */
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent; /* no grey flash on every tap; keyboard focus rings still show */
+  touch-action: manipulation;               /* no double-tap-zoom delay on buttons; pinch zoom still works */
+}
+
+/* iOS Safari zooms the whole page into any text field under 16px the moment it is focused */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: max(16px, 1em) !important; }
+}
+
+/* A touch screen has no hover, so a tap leaves :hover applied until the next tap elsewhere; the lifted buttons and
+   cards would stay lifted. Their hover movement only runs where there is a real pointer. */
+@media (hover: none) {
+  .hp-btn:hover, .cta-btn:hover, .mb-card:hover, .theme-toggle:hover, .feature-card:hover { transform: none !important; }
 }
 
 body {
@@ -94,6 +110,7 @@ body {
   background-color: rgba(20, 20, 20, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 24px;
+  -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
 
@@ -138,6 +155,7 @@ body {
   background-color: rgba(20, 20, 20, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 24px;
+  -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   transition: transform 0.3s ease, border-color 0.3s ease;
 }

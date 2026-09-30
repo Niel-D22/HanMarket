@@ -11,10 +11,10 @@ import cron from 'node-cron';
 import { parseEther } from 'viem';
 import { logger } from './logger';
 import { ASSETS, findAsset } from './assets';
-import { CANDLE_RANGES, getCandles, getQuotes, type CandleRange } from './prices';
+import { CANDLE_RANGES, CANDLE_TIMEFRAMES, getCandles, getQuotes, pickCandleSpec } from './prices';
 import { runLiquidations, runSessions, runSettlement, runTestnetFeeds } from './keeper';
 import { createMarkets } from './markets';
-import { NETWORKS } from './chain';
+import { NETWORKS, hasKeeperKey } from './chain';
 
 // HanMarket API: prices and chart data, plus the protocol's bots (settlement, perp sessions, liquidations).
 // Markets and positions are read by the web app straight from the contracts; option quotes come from web/api.
@@ -38,12 +38,12 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
-// GET /api/assets — the tradable catalogue
+// GET /api/assets: the tradable catalogue
 app.get('/api/assets', (_req: Request, res: Response) => {
   res.json({ success: true, data: ASSETS.map(({ yahoo, ...a }) => a) });
 });
 
-// GET /api/prices?symbols=0700.HK,BABA — latest quotes, cached for 5s
+// GET /api/prices?symbols=0700.HK,BABA: latest quotes, cached for 5s
 app.get('/api/prices', async (req: Request, res: Response) => {
   const wanted = String(req.query.symbols || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
   try {
@@ -58,14 +58,18 @@ app.get('/api/prices', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/candles?symbol=0700.HK&range=1M
+// GET /api/candles?symbol=BABA&tf=15m   (tf: 1m 5m 15m 1h 1d 1w)
+// GET /api/candles?symbol=0700.HK&range=1M (older look-back form, still served)
 app.get('/api/candles', async (req: Request, res: Response) => {
   const asset = findAsset(String(req.query.symbol || ''));
-  const range = String(req.query.range || '1M').toUpperCase() as CandleRange;
   if (!asset) return res.status(404).json({ success: false, error: 'Unknown symbol' });
-  if (!(range in CANDLE_RANGES)) return res.status(400).json({ success: false, error: `range must be one of ${Object.keys(CANDLE_RANGES).join(', ')}` });
+  const spec = pickCandleSpec(req.query.tf ? String(req.query.tf) : undefined, req.query.range ? String(req.query.range) : undefined);
+  if (!spec) {
+    const valid = req.query.tf ? Object.keys(CANDLE_TIMEFRAMES) : Object.keys(CANDLE_RANGES);
+    return res.status(400).json({ success: false, error: `${req.query.tf ? 'tf' : 'range'} must be one of ${valid.join(', ')}` });
+  }
   try {
-    res.json({ success: true, data: await getCandles(asset, range) });
+    res.json({ success: true, data: await getCandles(asset, spec) });
   } catch (error) {
     logger.error('Error fetching candles:', error);
     res.status(502).json({ success: false, error: 'Candle source unavailable' });
@@ -75,7 +79,7 @@ app.get('/api/candles', async (req: Request, res: Response) => {
 app.listen(PORT, () => {
   logger.info(`HanMarket API listening on port ${PORT}`);
 
-  if (process.env.KEEPER_PRIVATE_KEY) {
+  if (hasKeeperKey()) {
     const settleCron = process.env.KEEPER_CRON || '*/5 * * * *';
     const fail = (job: string) => (e: unknown) => logger.error(`${job} failed: ${(e as Error).message}`);
     cron.schedule(settleCron, () => { runSettlement().catch(fail('settlement')); });
@@ -98,6 +102,6 @@ app.listen(PORT, () => {
     });
     logger.info(`Keeper on: settlement (${settleCron}), perp sessions and liquidations (every minute), option chains (${marketsCron})`);
   } else {
-    logger.info('Keeper disabled (KEEPER_PRIVATE_KEY not set)');
+    logger.info('Keeper disabled (no KEEPER_PRIVATE_KEY or MAINNET_KEEPER_PRIVATE_KEY)');
   }
 });

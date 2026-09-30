@@ -3,3 +3,6 @@
 node_modules
 dist
 PROMPT-HERO-BG.md
+public/AlphaMarkets-Perpetual-Demo-Full+Music.mp4
+# source paintings for the hero; the site ships the processed layers in public/hero/scene (scripts/hero-scene.py)
+public/Asset Heroo

@@ -100,12 +100,18 @@ buy, sell, withdraw — dan semua masalah UX dicatat.
   ditelusuri di explorer.
 - **Selesai kalau:** ada catatan tertulis berisi minimal 3 sesi uji berbeda dan daftar bug/UX issue yang ditemukan.
 
-### Task 5 — 11 fitur terminal yang tertunda (opsional, boleh paralel)
-Daftar: 24h High/Low/Vol, timeframe intraday 1m–1D + OHLC legend, opsi chart TradingView untuk ADR,
-tab Options Flow, tampilan All Expiries, watchlist yang bisa diedit + favorit, volume di sidebar,
-panel yang bisa dilipat, shortcut navigasi Positions/Orders/History, baris "Settlement Token: USDC",
-link X di top bar.
-- Tidak menghalangi testnet publik atau audit. Kerjakan kalau ada waktu luang.
+### Task 5 — 11 fitur terminal yang tertunda — ✅ SELESAI (2026-09-24)
+Semua 11 sudah ada di terminal: 24h High/Low/Vol, timeframe intraday 1m/5m/15m/1H/1D/1W + legenda OHLC,
+pilihan chart TradingView untuk ADR (HK tetap chart native karena widget menolak simbol HKEX), tab
+Options Flow, tampilan All Expiries, watchlist yang bisa diedit + favorit, volume di sidebar, panel yang
+bisa dilipat (sidebar, order terminal, panel bawah, trades), shortcut keyboard (tekan `?` untuk daftarnya),
+baris "Settlement Token: USDC", dan link X di top bar.
+- Link X hanya tampil kalau `VITE_X_URL` diisi di `web/.env` (sama seperti di landing page).
+- Yang **belum** ada dan butuh perubahan kontrak: order Limit dan Stop-loss / Take-profit (tab "Limit" dan
+  "Advanced" di order terminal masih nonaktif). `PerpsEngine` belum punya order bersyarat, jadi ini fase 2.
+- Catatan skala: History dan Options Flow membaca event langsung dari RPC (`web/src/terminal/logScan.ts`),
+  bukan dari indexer. Cukup untuk testnet; untuk mainnet dengan riwayat berbulan-bulan, siapkan indexer atau RPC
+  berbayar lewat `VITE_MAINNET_RPC_URL`.
 
 ### Task 6 — Repo belum punya commit git
 **Tujuan:** ada riwayat/cadangan kode.
@@ -159,7 +165,14 @@ Bukan task teknis, tapi wajib selesai sebelum Task 9:
       sudah dicek bahwa alamat ini masih aktif dan benar di dokumentasi Chainlink terbaru.
 - [ ] Dompet deployer mainnet baru (bukan dompet testnet) sudah diisi ETH asli secukupnya.
 - [ ] `OWNER` dan `TREASURY` di-set ke alamat multisig, bukan alamat deployer pribadi.
+- [ ] Leverage dan margin perp mainnet diputuskan dengan sadar. Default skrip deploy tetap 3x (margin awal
+      33,34%, maintenance 10%). Testnet sudah dinaikkan ke 10x (10% / 5%) lewat `setPerpRisk`; skrip deploy
+      bisa mengulanginya dengan `PERP_MAX_LEVERAGE=10 PERP_INITIAL_MARGIN_BPS=1000
+      PERP_MAINTENANCE_MARGIN_BPS=500`. Pada 10x, harga yang melompat melewati batas likuidasi (~5%) menjadi
+      kerugian yang ditanggung pool, dan kontrak belum diaudit.
 - [ ] Simulasi (`forge script` **tanpa** `--broadcast`) sudah dijalankan dan hasilnya direview manusia.
+- [ ] `deploy-mainnet.sh rehearse` lulus (**REHEARSAL PASSED**) pada hari launch, dengan `mainnet.env` yang final.
+      Alat dan runbook launch: `MAINNET-LAUNCH.md` (pertama kali lulus 2026-09-25, di fork mainnet blok 71.989.413).
 - [ ] Minimal dua orang berwenang menyetujui secara tertulis untuk lanjut broadcast.
 
 **Begitu semua kotak di atas dicentang oleh manusia**, langkah broadcast teknisnya sama persis

@@ -29,7 +29,7 @@ export function isMarketOpen(board: Board, now = new Date()): boolean {
 
 const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 
-/** "opens in 48 minutes (09:30 HKT)" — when the underlying starts trading again. */
+/** "opens in 48 minutes (09:30 HKT)": when the underlying starts trading again. */
 export function nextOpenLabel(board: Board, now = new Date()): string {
   const { tz, sessions } = SESSIONS[board];
   const { weekday, minutes } = localClock(tz, now);
@@ -52,5 +52,5 @@ export function nextOpenLabel(board: Board, now = new Date()): string {
 
 export function closedMessage(board: Board, now = new Date()): string {
   const { label } = SESSIONS[board];
-  return `${label} is closed — ${nextOpenLabel(board, now)}. Options here still trade around the clock; only the share price stops moving.`;
+  return `${label} is closed. It ${nextOpenLabel(board, now)}. Options here still trade around the clock; only the share price stops moving.`;
 }

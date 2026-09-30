@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 /* ============================================================================
-   Cloudscape — soft fbm-noise clouds drawn in a WebGL shader.
+   Cloudscape: soft fbm-noise clouds drawn in a WebGL shader.
    Ported for this project (no Tailwind / `cn`), plus a `fadeTop` mode used by
    the HanMarket hero: the canvas is transparent and wispy along its top edge and
    becomes solid `colorMid` toward the bottom, so a solid block of the same

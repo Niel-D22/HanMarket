@@ -26,8 +26,9 @@
   --hm-red-hover: #8C000B;
   --hm-red-c: 171, 0, 13;
   --hm-on-red: #FFFFFF;
-  --hm-up: #C8102E;
-  --hm-down: #1E8E5A;
+  --hm-up: #1E8E5A;
+  --hm-down: #C8102E;
+  --hm-crimson: #C8102E;
   --hm-gold: #B38A55;
   --hm-gold-c: 179, 138, 85;
   --hm-warn: #9A7A2C;
@@ -41,6 +42,8 @@
   --hm-cloud-filter: none;
   --hm-lantern-glow: none;
   --hm-logo-filter: invert(1);
+  /* the "built with" row: every logo as one flat silhouette in one ink colour (the SVG filter is in Landing.tsx) */
+  --hm-logo-mono: url(#hm-logo-mono);
   --hm-paper-veil: 0;
 }
 
@@ -60,8 +63,9 @@
   --hm-red-hover: #EC6168;
   --hm-red-c: 224, 74, 81;
   --hm-on-red: #FFF8F2;
-  --hm-up: #F0555C;
-  --hm-down: #3CCB8B;
+  --hm-up: #3CCB8B;
+  --hm-down: #F0555C;
+  --hm-crimson: #F0555C;
   --hm-gold: #D9B47A;
   --hm-gold-c: 217, 180, 122;
   --hm-warn: #E0B25C;
@@ -75,6 +79,7 @@
   --hm-cloud-filter: invert(0.92) sepia(0.25) brightness(0.62);
   --hm-lantern-glow: drop-shadow(0 0 26px rgba(255, 96, 60, 0.55)) drop-shadow(0 0 70px rgba(255, 120, 60, 0.25));
   --hm-logo-filter: none;
+  --hm-logo-mono: url(#hm-logo-mono) invert(1);
   --hm-paper-veil: 0.86;
 }
 

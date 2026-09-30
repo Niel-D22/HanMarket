@@ -1,4 +1,4 @@
-// Deploys a Safe (multisig) via SafeProxyFactory, without relying on app.safe.global's web UI — useful on
+// Deploys a Safe (multisig) via SafeProxyFactory, without relying on app.safe.global's web UI. Useful on
 // chains it may not have onboarded yet, since our project already has Foundry/viem scripting for every
 // other deployment step. Confirmed by checking bytecode directly on Robinhood Chain testnet (46630) and
 // mainnet (4663) before trusting these addresses: contracts really are live at all three.
@@ -55,7 +55,7 @@ async function main() {
   const client = publicClientFor(network);
   for (const [label, addr] of [['SafeL2 singleton', SAFE_L2_SINGLETON], ['SafeProxyFactory', SAFE_PROXY_FACTORY], ['CompatibilityFallbackHandler', COMPATIBILITY_FALLBACK_HANDLER]] as const) {
     const code = await client.getBytecode({ address: addr });
-    if (!code || code === '0x') throw new Error(`${label} has no bytecode at ${addr} on ${network} — refusing to deploy against a chain where Safe was not actually confirmed live`);
+    if (!code || code === '0x') throw new Error(`${label} has no bytecode at ${addr} on ${network}; refusing to deploy against a chain where Safe was not actually confirmed live`);
   }
   console.log(`Safe contracts confirmed live on ${network}. Owners (${threshold}-of-${owners.length}):`);
   owners.forEach((o) => console.log(`  ${getAddress(o)}`));
@@ -63,7 +63,7 @@ async function main() {
   const initializer = encodeFunctionData({
     abi: safeSetupAbi, functionName: 'setup',
     // .map(getAddress) is a classic array.map footgun: map passes (value, index, array), and if the
-    // callback accepts a second argument, the index leaks in — same shape as `["1","2"].map(parseInt)`.
+    // callback accepts a second argument, the index leaks in, the same shape as `["1","2"].map(parseInt)`.
     // Wrapping it keeps only the address.
     args: [owners.map((o) => getAddress(o)), BigInt(threshold), '0x0000000000000000000000000000000000000000', '0x', COMPATIBILITY_FALLBACK_HANDLER, '0x0000000000000000000000000000000000000000', 0n, '0x0000000000000000000000000000000000000000'],
   });
@@ -90,7 +90,7 @@ async function main() {
     .map((l) => { try { return decodeEventLog({ abi: proxyFactoryAbi, ...l }); } catch { return null; } })
     .find((e) => e?.eventName === 'ProxyCreation');
   const safeAddress = (created?.args as { proxy?: Address } | undefined)?.proxy;
-  console.log(`Safe deployed: ${safeAddress ?? '(address not decoded — check the receipt logs manually)'}`);
+  console.log(`Safe deployed: ${safeAddress ?? '(address not decoded; check the receipt logs manually)'}`);
 }
 
 main().catch((e) => {

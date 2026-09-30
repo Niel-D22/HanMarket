@@ -7,10 +7,17 @@ import type { NetworkKey } from '../contexts/NetworkContext';
 import type { PerpMarket } from './protocol';
 import { fmtCompact, fmtPrice } from './protocol';
 import { ThemeToggle } from '../theme/ThemeProvider';
-import { IconDocs, IconMarkets, IconMenu, IconPortfolio, IconSearch, IconTrade, IconVault, IconWallet } from './icons';
+import {
+  IconActivity, IconDocs, IconKeyboard, IconMarkets, IconMenu, IconPanelLeft, IconPanelRight, IconPortfolio, IconSearch, IconStrategy, IconTrade,
+  IconVault, IconWallet, IconX,
+} from './icons';
+import type { PanelKey, Panels } from './panels';
+import { X_URL } from '../config/social';
+import { OpenInWallet, needsWalletApp } from './OpenInWallet';
 
-export type View = 'trade' | 'markets' | 'portfolio' | 'vault';
+export type View = 'trade' | 'markets' | 'strategies' | 'portfolio' | 'activity' | 'vault';
 export type Product = 'options' | 'perps';
+
 
 const change = (q?: Quote) => q?.change24h ?? 0;
 const Change = ({ q }: { q?: Quote }) => {
@@ -20,13 +27,17 @@ const Change = ({ q }: { q?: Quote }) => {
 
 // ---------------------------------------------------------------- top bar
 
-export function TopBar({ network, setNetwork, onSelect, onMenu }: {
+export function TopBar({ network, setNetwork, onSelect, onMenu, panels, onPanel, onHelp }: {
   network: NetworkKey;
   setNetwork: (n: NetworkKey) => void;
   onSelect: (symbol: string) => void;
   onMenu: () => void;
+  panels: Panels;
+  onPanel: (key: PanelKey) => void;
+  onHelp: () => void;
 }) {
   const [q, setQ] = useState('');
+  const [walletApp, setWalletApp] = useState(false);
   const results = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return [];
@@ -40,9 +51,20 @@ export function TopBar({ network, setNetwork, onSelect, onMenu }: {
         <img src="/brand/hanmarket-mark.png" alt="" width={26} height={26} />
         <span>HANMARKET</span>
       </Link>
+      <button
+        type="button"
+        className="tm-icon-btn tm-desk-only"
+        aria-pressed={!panels.side}
+        aria-label={panels.side ? 'Hide the sidebar' : 'Show the sidebar'}
+        title={`${panels.side ? 'Hide' : 'Show'} the sidebar ( [ )`}
+        onClick={() => onPanel('side')}
+      >
+        <IconPanelLeft />
+      </button>
       <div className="tm-search">
         <IconSearch />
         <input
+          id="tm-search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) { onSelect(results[0].symbol); setQ(''); } if (e.key === 'Escape') setQ(''); }}
@@ -61,6 +83,24 @@ export function TopBar({ network, setNetwork, onSelect, onMenu }: {
         )}
       </div>
       <div className="tm-top-right">
+        {X_URL && (
+          <a className="tm-icon-btn tm-x" href={X_URL} target="_blank" rel="noreferrer noopener" aria-label="HanMarket on X" title="HanMarket on X">
+            <IconX />
+          </a>
+        )}
+        <button type="button" className="tm-icon-btn tm-desk-only" aria-label="Keyboard shortcuts" title="Keyboard shortcuts ( ? )" onClick={onHelp}>
+          <IconKeyboard />
+        </button>
+        <button
+          type="button"
+          className="tm-icon-btn tm-desk-only"
+          aria-pressed={!panels.right}
+          aria-label={panels.right ? 'Hide the order terminal' : 'Show the order terminal'}
+          title={`${panels.right ? 'Hide' : 'Show'} the order terminal ( ] )`}
+          onClick={() => onPanel('right')}
+        >
+          <IconPanelRight />
+        </button>
         <ThemeToggle className="theme-toggle tm-theme" />
         <div className="tm-net" role="group" aria-label="Network">
           {(['mainnet', 'testnet'] as const).map((n) => (
@@ -72,7 +112,9 @@ export function TopBar({ network, setNetwork, onSelect, onMenu }: {
         <ConnectButton.Custom>
           {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
             const label = !mounted || !account ? 'Connect Wallet' : chain?.unsupported ? 'Wrong network' : account.displayName;
-            const onClick = !account ? openConnectModal : chain?.unsupported ? openChainModal : openAccountModal;
+            // a phone browser with no wallet in it: point to the wallet apps instead of a connect modal with nothing to offer
+            const connect = () => (needsWalletApp() ? setWalletApp(true) : openConnectModal());
+            const onClick = !account ? connect : chain?.unsupported ? openChainModal : openAccountModal;
             return (
               <button type="button" className={`tm-wallet ${account ? 'is-connected' : ''}`} onClick={onClick} aria-hidden={!mounted}>
                 <IconWallet /> {label}
@@ -81,6 +123,7 @@ export function TopBar({ network, setNetwork, onSelect, onMenu }: {
           }}
         </ConnectButton.Custom>
       </div>
+      <OpenInWallet open={walletApp} onClose={() => setWalletApp(false)} />
     </header>
   );
 }
@@ -92,7 +135,7 @@ const WATCHLIST_KEY = 'hm-watchlist';
 
 /**
  * The starred markets, kept in this browser. It is a per-viewer convenience, not account state, so it
- * lives in localStorage — which can be empty or throw in a private window, hence the guards.
+ * lives in localStorage, which can be empty or throw in a private window, hence the guards.
  */
 function useWatchlist() {
   const [list, setList] = useState<string[]>(() => {
@@ -121,7 +164,27 @@ function useWatchlist() {
   return { list, toggle, has: (s: string) => list.includes(s) };
 }
 
-export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perps, open, onClose }: {
+/** The perpetuals list before there is one: still loading, not on mainnet yet, or nothing listed. */
+function PerpsEmpty({ network, deployed, loading, onSwitchTestnet }: {
+  network: NetworkKey;
+  deployed: boolean;
+  loading: boolean;
+  onSwitchTestnet: () => void;
+}) {
+  if (!deployed && network === 'mainnet') {
+    return (
+      <div className="tm-empty">
+        <b>Mainnet opens at launch</b>
+        Perpetuals are live on testnet now.
+        <button type="button" className="tm-empty-btn" onClick={onSwitchTestnet}>Switch to Testnet</button>
+      </div>
+    );
+  }
+  if (!deployed) return <div className="tm-empty">Perpetuals open once the protocol is deployed on this network.</div>;
+  return <div className="tm-empty">{loading ? 'Loading markets…' : 'No perpetual markets listed yet.'}</div>;
+}
+
+export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perps, network, deployed, onSwitchTestnet, open, onClose }: {
   view: View;
   setView: (v: View) => void;
   symbol: string;
@@ -129,6 +192,9 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
   onSelect: (symbol: string, product?: Product) => void;
   quotes: Record<string, Quote>;
   perps: PerpMarket[] | undefined;
+  network: NetworkKey;
+  deployed: boolean;
+  onSwitchTestnet: () => void;
   open: boolean;
   onClose: () => void;
 }) {
@@ -137,7 +203,9 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
   const nav: { id: View; label: string; icon: ReactElement; badge?: string }[] = [
     { id: 'trade', label: 'Trade', icon: <IconTrade /> },
     { id: 'markets', label: 'Markets', icon: <IconMarkets /> },
+    { id: 'strategies', label: 'Strategies', icon: <IconStrategy /> },
     { id: 'portfolio', label: 'Portfolio', icon: <IconPortfolio /> },
+    { id: 'activity', label: 'Activity', icon: <IconActivity /> },
     { id: 'vault', label: 'Vault', icon: <IconVault />, badge: 'LP' },
   ];
   const go = (v: View) => { setView(v); onClose(); };
@@ -202,8 +270,29 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
                 const a = ASSETS.find((x) => x.symbol === m.assetSymbol);
                 return a ? assetRow(a, view === 'trade' && product === 'perps' && symbol === a.symbol, 'perps', m.symbol) : null;
               })
-            : <div className="tm-empty">BABA-PERP opens once the protocol is deployed on this network.</div>)}
+            : <PerpsEmpty network={network} deployed={deployed} loading={!perps} onSwitchTestnet={() => { onSwitchTestnet(); onClose(); }} />)}
       </div>
     </aside>
+  );
+}
+
+// ---------------------------------------------------------------- ticker tape
+
+/** Every market's price and 24h change, scrolling along the top. The list is drawn twice so the loop has no seam. */
+export function Ticker({ quotes, onSelect }: { quotes: Record<string, Quote>; onSelect: (symbol: string) => void }) {
+  const items = ASSETS.filter((a) => quotes[a.symbol]);
+  if (!items.length) return <div className="tm-ticker" aria-hidden="true" />;
+  const run = (copy: number) => items.map((a) => {
+    const q = quotes[a.symbol];
+    return (
+      <button key={`${copy}-${a.symbol}`} type="button" tabIndex={copy ? -1 : 0} onClick={() => onSelect(a.symbol)}>
+        <b>{a.symbol}</b> <span className="num">{fmtPrice(q.price)}</span> <Change q={q} />
+      </button>
+    );
+  });
+  return (
+    <div className="tm-ticker" aria-label="Market prices">
+      <div className="tm-ticker-run">{run(0)}<span aria-hidden="true">{run(1)}</span></div>
+    </div>
   );
 }

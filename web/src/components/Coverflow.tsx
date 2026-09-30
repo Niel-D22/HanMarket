@@ -3,7 +3,7 @@ import type { ReactNode, KeyboardEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 
 /* ============================================================================
-   Coverflow — 3D carousel: the active card faces the viewer, neighbours
+   Coverflow: 3D carousel: the active card faces the viewer, neighbours
    rotate away on the Y axis. Arrow keys, swipe/drag, prev/next buttons and
    dots all move it; changes are announced to screen readers.
 ============================================================================ */

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef } from 'react';
 
-/* SplashCursor — React Bits component, kept as the original (only typed for TS).
+/* SplashCursor: React Bits component, kept as the original (only typed for TS).
    Two safety additions, neither changes how it looks:
    - if the GPU can't render float textures, the effect is skipped instead of throwing
      (an exception here would unmount the whole page);

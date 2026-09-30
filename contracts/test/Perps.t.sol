@@ -5,6 +5,8 @@ import {BaseTest} from "./Base.t.sol";
 import {PerpsEngine} from "../src/perps/PerpsEngine.sol";
 import {IRiskManager} from "../src/interfaces/IRiskManager.sol";
 import {OracleRouter} from "../src/oracle/OracleRouter.sol";
+import {MarketRegistry} from "../src/core/MarketRegistry.sol";
+import {TestnetPriceFeed} from "../src/testnet/TestnetPriceFeed.sol";
 
 contract PerpsTest is BaseTest {
     function _open(address who, bool isLong, uint256 collateral, uint256 size) internal {
@@ -188,6 +190,142 @@ contract PerpsTest is BaseTest {
         _assertSolvent();
     }
 
+    // ------------------------------------------------------------ 10x
+
+    /// 10x needs an initial margin of at least 10%, so the maintenance margin has to sit below it; 5% leaves a real
+    /// cushion (the 3x setting has 33% against 10%).
+    function _tenX() internal pure returns (IRiskManager.PerpRisk memory r) {
+        r = _defaultRisk();
+        r.maxLeverage = 10;
+        r.initialMarginBps = 1_000;
+        r.maintenanceMarginBps = 500;
+    }
+
+    function test_tenXLeverageAllowedAndElevenRefused() public {
+        vm.prank(owner);
+        risk.setPerpRisk(babaPerp, _tenX());
+
+        // 10,000 notional at 10x: 1,000 margin plus the 10 fee, which comes out of the margin
+        _open(alice, true, 1_010 * ONE, 10_000 * ONE);
+        assertEq(perps.getPosition(alice, babaPerp, true).collateral, 1_000 * ONE);
+
+        vm.prank(bob);
+        vm.expectRevert(PerpsEngine.LeverageTooHigh.selector); // 11x
+        perps.increasePosition(babaPerp, true, 1_000 * ONE, 11_000 * ONE, type(uint256).max, uint64(block.timestamp));
+        _assertSolvent();
+    }
+
+    function test_tenXLiquidatesAtAboutFivePercent() public {
+        vm.prank(owner);
+        risk.setPerpRisk(babaPerp, _tenX());
+        _open(alice, true, 1_010 * ONE, 10_000 * ONE); // 100 shares at 100, collateral 1,000
+
+        // equity = 100P - 9,000 against maintenance 5P: liquidatable below P = 9,000 / 95 = 94.7368
+        PerpsEngine.PositionInfo memory info = perps.positionInfo(alice, babaPerp, true);
+        assertApproxEqAbs(info.liquidationPrice, 94_736_842, 1);
+
+        _setBaba(95e8);
+        vm.prank(liquidator);
+        vm.expectRevert(PerpsEngine.NotLiquidatable.selector);
+        perps.liquidate(alice, babaPerp, true);
+
+        _setBaba(94e8); // equity 400 < maintenance 470
+        vm.prank(liquidator);
+        perps.liquidate(alice, babaPerp, true);
+        assertEq(vault.balances(liquidator), 47 * ONE); // 0.5% of 9,400
+        assertEq(vault.balances(alice), 100_000 * ONE - 1_010 * ONE + 353 * ONE); // equity 400 less the reward
+        assertEq(perps.getPosition(alice, babaPerp, true).size, 0);
+        assertEq(vault.reservedAmount(), 0);
+        _assertSolvent();
+    }
+
+    // ------------------------------------------------------------ more markets
+
+    /// A perp market can be added after deployment, with no redeploy, for an asset that launched with options only and a
+    /// signed feed: give its oracle a price feed, turn its perps flag on, register the market, set its risk limits. This
+    /// is how testnet markets beyond BABA are added, with a TestnetPriceFeed the keeper updates; on mainnet the same
+    /// steps need a Chainlink feed to exist for the asset.
+    function test_addSecondPerpMarketAfterDeployment() public {
+        TestnetPriceFeed feed = new TestnetPriceFeed(8, "0700.HK / USD (test)", keeper);
+        vm.prank(keeper);
+        feed.push(int256(400e8));
+
+        vm.startPrank(owner);
+        // not possible until the asset allows perps: the registry refuses
+        vm.expectRevert(MarketRegistry.PerpsDisabled.selector);
+        registry.addPerpMarket("0700-PERP", tencentAsset);
+
+        oracle.setChainlinkFeed(TENCENT_ID, address(feed), 3 days);
+        registry.updateAsset(tencentAsset, true, true, true);
+        uint32 tencentPerp = registry.addPerpMarket("0700-PERP", tencentAsset);
+        risk.setPerpRisk(tencentPerp, _tenX());
+        vm.stopPrank();
+        vm.prank(keeper);
+        risk.setTradingOpen(tencentPerp, true);
+        assertEq(tencentPerp, 1);
+
+        // it trades: 10,000 notional at 400 is 25 shares; +10% is +1,000 before the fees (10 to open, 11 to close)
+        vm.prank(alice);
+        perps.increasePosition(tencentPerp, true, 1_010 * ONE, 10_000 * ONE, type(uint256).max, uint64(block.timestamp));
+        vm.prank(keeper);
+        feed.push(int256(440e8));
+        vm.prank(alice);
+        perps.closePosition(tencentPerp, true, 0, uint64(block.timestamp));
+        assertEq(vault.balances(alice), 100_000 * ONE - 1_010 * ONE + 1_000 * ONE + 1_000 * ONE - 11 * ONE);
+        assertEq(perps.getPosition(alice, tencentPerp, true).size, 0);
+
+        // and the first market is untouched
+        _open(bob, true, 4_000 * ONE, 10_000 * ONE);
+        assertEq(perps.getPosition(bob, babaPerp, true).size, 100e18);
+        _assertSolvent();
+    }
+
+    /// The terminal sizes an order in floating point and rounds each amount to the nearest micro-USDC (margin = size / 10,
+    /// plus the fee). At exactly max leverage the contract's own rounding (the fee is floored) can leave the margin a
+    /// micro-USDC short, so the terminal sends a small buffer on top; this measures both.
+    function test_orderRoundedLikeTheTerminalAtMaxLeverage() public {
+        vm.prank(owner);
+        risk.setPerpRisk(babaPerp, _tenX());
+
+        uint256 refused;
+        uint256 refusedWithBuffer;
+        for (uint256 i; i < 100; i++) {
+            uint256 n = 1_124_600_000 + i; // notional in micro-USDC
+            uint256 collateral = (n * 101 + 500) / 1_000; // n / 10 plus the 0.1% test fee, rounded to nearest
+            uint256 snap = vm.snapshotState();
+            vm.prank(alice);
+            try perps.increasePosition(babaPerp, true, collateral, n, type(uint256).max, uint64(block.timestamp)) {}
+            catch {
+                refused++;
+            }
+            vm.revertToState(snap);
+            vm.prank(alice);
+            try perps.increasePosition(babaPerp, true, collateral + 1_000, n, type(uint256).max, uint64(block.timestamp)) {}
+            catch {
+                refusedWithBuffer++;
+            }
+            vm.revertToState(snap);
+        }
+        emit log_named_uint("refused at exactly 10x without a buffer, of 100 orders", refused);
+        assertEq(refusedWithBuffer, 0);
+    }
+
+    /// The cost of a thin cushion: a gap through the liquidation price is a loss for the pool, never an insolvency.
+    function test_tenXGapIsAbsorbedByPool() public {
+        vm.prank(owner);
+        risk.setPerpRisk(babaPerp, _tenX());
+        _open(alice, true, 1_010 * ONE, 10_000 * ONE);
+
+        _setBaba(89e8); // equity 1,000 - 1,100 = -100
+        uint256 poolBefore = vault.poolAmount();
+        vm.prank(liquidator);
+        perps.liquidate(alice, babaPerp, true);
+        assertEq(vault.balances(liquidator), 44_500_000); // 0.5% of 8,900
+        assertEq(vault.balances(alice), 100_000 * ONE - 1_010 * ONE);
+        assertEq(vault.poolAmount(), poolBefore + 1_000 * ONE - 44_500_000);
+        _assertSolvent();
+    }
+
     // ------------------------------------------------------------ funding
 
     function test_fundingPaidByTheCrowdedSide() public {
@@ -228,6 +366,35 @@ contract PerpsTest is BaseTest {
         uint256 p1 = bound(closePrice, 1e8, 1_000e8);
         uint256 c = bound(collateral, 100 * ONE, 30_000 * ONE);
         uint256 lev = bound(leverage, 1, 3);
+
+        _setBaba(p0);
+        _open(alice, isLong, c, (c * lev * 9) / 10);
+        _setBaba(p1);
+
+        PerpsEngine.PositionInfo memory info = perps.positionInfo(alice, babaPerp, isLong);
+        if (info.liquidatable) {
+            vm.prank(liquidator);
+            perps.liquidate(alice, babaPerp, isLong);
+        } else {
+            _close(alice, isLong);
+        }
+
+        assertEq(perps.getPosition(alice, babaPerp, isLong).size, 0);
+        assertEq(vault.reservedAmount(), 0);
+        assertEq(vault.lockedMargin(alice), 0);
+        _assertSolvent();
+    }
+
+    /// The same invariant at the 10x setting, where a liquidation and a gap through it are far more likely.
+    function testFuzz_accountingHoldsTenX(uint64 openPrice, uint64 closePrice, uint96 collateral, uint8 leverage, bool isLong)
+        public
+    {
+        vm.prank(owner);
+        risk.setPerpRisk(babaPerp, _tenX());
+        uint256 p0 = bound(openPrice, 10e8, 500e8);
+        uint256 p1 = bound(closePrice, 1e8, 1_000e8);
+        uint256 c = bound(collateral, 100 * ONE, 10_000 * ONE);
+        uint256 lev = bound(leverage, 1, 10);
 
         _setBaba(p0);
         _open(alice, isLong, c, (c * lev * 9) / 10);

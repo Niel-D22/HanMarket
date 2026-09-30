@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 // designed to be seen in daylight first, and a system set to dark should not silently change a first-time
 // visitor's very first impression. Dark is only ever reached by pressing the toggle, and from then on the
 // choice is remembered (localStorage) and shared across every route, since there is one ThemeProvider at
-// the app root (main.tsx) — Landing and the Terminal read the same state, they never fall back to system
+// the app root (main.tsx). Landing and the Terminal read the same state, they never fall back to system
 // preference independently. 'system' is kept as a type for anyone wiring a future explicit "match system"
 // option, but nothing produces it as a default any more.
 

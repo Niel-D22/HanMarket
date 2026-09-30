@@ -90,4 +90,4 @@ done < "$OUT/.creates.tsv"
 
 rm -f "$OUT/.creates.tsv"
 echo
-echo "Bundle in $OUT/ — start with $OUT/VERIFY.md"
+echo "Bundle in $OUT/. Start with $OUT/VERIFY.md"

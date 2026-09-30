@@ -4,7 +4,7 @@ import { useNetwork } from '../contexts/NetworkContext';
 import { erc20Abi, optionsAbi, perpsAbi, vaultAbi } from '../../api/_lib/protocol/abis';
 import { fetchQuote, useOptionChain, type SelectedOption } from './options';
 import {
-  fmtPrice, fmtUsd, optionLabel, toUsd6, useProtocol,
+  fmtPrice, fmtUsd, optionLabel, priceSource, toUsd6, useCollateralSymbol, useProtocol,
   type AccountState, type Fees, type OptionHolding, type PerpMarket, type Step, type useTx,
 } from './protocol';
 import type { Product } from './Chrome';
@@ -13,6 +13,7 @@ type Tx = ReturnType<typeof useTx>;
 /** Opens the bottom panel that holds a finished transaction's result. */
 export type GoTo = (tab: 'positions' | 'options' | 'history') => void;
 const SLIPPAGE = 0.005; // perps fill at the oracle price; this only guards against a price update in between
+const MARGIN_BUFFER = 0.001; // USDC added to a perp order's margin so rounding cannot land it below max leverage's requirement
 const deadline = () => BigInt(Math.floor(Date.now() / 1000) + 300);
 const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0);
 
@@ -27,6 +28,7 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
   deployed: boolean;
   goTo: GoTo;
 }) {
+  const unit = useCollateralSymbol();
   const { d } = useProtocol();
   const [isLong, setIsLong] = useState(true);
   const [size, setSize] = useState('');
@@ -40,9 +42,12 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
   const notional = shares * price;
   const margin = lev > 0 ? notional / lev : 0;
   const fee = notional * feeRate;
-  const required = margin + fee;
+  // The order is sized in floating point and rounded to micro-USDC, while the contract floors its fee and needs
+  // notional <= margin x maxLeverage. At exactly max leverage that leaves the margin a micro-USDC short in about
+  // 4 orders out of 10 (measured in Perps.t.sol), so a tenth of a cent goes on top of it. It stays in the position.
+  const required = margin + fee + (shares > 0 ? MARGIN_BUFFER : 0);
   const free = account?.free ?? 0;
-  const maxShares = price > 0 ? (free * lev) / (price * (1 + lev * feeRate)) : 0;
+  const maxShares = price > 0 ? (Math.max(0, free - MARGIN_BUFFER) * lev) / (price * (1 + lev * feeRate)) : 0;
   const mm = (perp?.risk.maintenanceMarginBps ?? 1000) / 10_000;
   const liq = shares > 0 && price > 0
     ? isLong ? Math.max(0, (notional - margin) / (shares * (1 - mm))) : (margin + notional) / (shares * (1 + mm))
@@ -55,7 +60,7 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
     : !perp.tradingOpen ? 'Market closed'
     : shares <= 0 ? 'Enter a size'
     : notional > limitNotional ? `Max position ${fmtUsd(limitNotional, 0)}`
-    : required > free + 1e-9 ? 'Deposit USDC to trade'
+    : required > free + 1e-9 ? `Deposit ${unit} to trade`
     : null;
 
   const submit = async () => {
@@ -115,10 +120,13 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
         <div className="tm-kv"><span>Available Collateral</span><span>{fmtUsd(free)}</span></div>
       </div>
       <button type="button" className={`tm-cta ${isLong ? 'long' : 'short'}`} disabled={!!problem || tx.state.stage === 'wallet' || tx.state.stage === 'confirming'} onClick={submit}>
-        {problem ?? `${isLong ? 'Buy / Long' : 'Sell / Short'} ${perp?.assetSymbol}`}
+        {/* a perpetual is opened long or short, never "bought". That word belongs to the options ticket,
+            where "Buy Call / Buy Put" means something specific. Mixing them here ("Buy / Long") reads as
+            if a perpetual position is purchased like an option, which it isn't. */}
+        {problem ?? `Open ${isLong ? 'Long' : 'Short'} ${perp?.assetSymbol}`}
       </button>
       <div className="tm-note">
-        Filled at the oracle index price (Chainlink on mainnet). Settled onchain in USDC through the HanMarket Vault. Isolated margin: a loss never exceeds this position's collateral.
+        Filled at the oracle index price (Chainlink on mainnet). Settled onchain in {unit} through the HanMarket Vault. Isolated margin: a loss never exceeds this position's collateral.
       </div>
     </>
   );
@@ -126,8 +134,10 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
 
 // ---------------------------------------------------------------- option ticket
 
-function OptionTicket({ option, holding, fees, account, address, tx, deployed, goTo, onClear, onSide }: {
+function OptionTicket({ option, holding, fees, account, address, tx, deployed, goTo, onClear, onSide, hasFeed }: {
   option: SelectedOption | null;
+  /** the asset has a live onchain feed (it has a perp market), so its options settle from that feed */
+  hasFeed: boolean;
   onSide: (side: 'buy' | 'sell') => void;
   holding?: OptionHolding;
   fees?: Fees;
@@ -138,6 +148,7 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
   goTo: GoTo;
   onClear: () => void;
 }) {
+  const unit = useCollateralSymbol();
   const { d, network } = useProtocol();
   const { apiUrl } = useNetwork();
   const [contracts, setContracts] = useState('1');
@@ -171,7 +182,7 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
     : !address ? 'Connect wallet'
     : n <= 0 ? 'Enter contracts'
     : !premium ? 'No price right now'
-    : buying && total + fee > (account?.free ?? 0) + 1e-9 ? 'Deposit USDC to trade'
+    : buying && total + fee > (account?.free ?? 0) + 1e-9 ? `Deposit ${unit} to trade`
     : !buying && n > held + 1e-9 ? `You hold ${held} contracts`
     : null;
 
@@ -232,14 +243,14 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
         {buying && <div className="tm-kv"><span>Max Loss</span><span className="down">{fmtUsd(total + fee)}</span></div>}
         {buying && <div className="tm-kv"><span>Max Profit (cap {fmtUsd(option.cap)})</span><span className="up">{fmtUsd((option.cap - premium) * n)}</span></div>}
         <div className="tm-kv"><span>IV · Delta</span><span>{(iv * 100).toFixed(1)}% · {delta.toFixed(2)}</span></div>
-        <div className="tm-kv"><span>Settlement</span><span>{option.symbol === 'BABA' ? 'Chainlink' : 'Signed price'}</span></div>
+        <div className="tm-kv"><span>Settlement</span><span>{priceSource(network, hasFeed)}</span></div>
       </div>
       <button type="button" className={`tm-cta ${buying ? 'long' : 'short'}`} disabled={!!problem || tx.state.stage === 'wallet' || tx.state.stage === 'confirming'} onClick={submit}>
         {problem ?? `${buying ? 'Buy' : 'Sell'} ${option.isCall ? 'Call' : 'Put'}`}
       </button>
       {quoteError && <div className="tm-note warn">{quoteError}</div>}
       <div className="tm-note">
-        A fresh signed quote is fetched when you submit; the wallet shows the exact premium. Cash-settled in USDC at expiry; each contract pays at most its cap.
+        A fresh signed quote is fetched when you submit; the wallet shows the exact premium. Cash-settled in {unit} at expiry; each contract pays at most its cap.
       </div>
     </>
   );
@@ -248,6 +259,7 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
 // ---------------------------------------------------------------- account
 
 function AccountCard({ account, address, tx, deployed }: { account?: AccountState; address?: Address; tx: Tx; deployed: boolean }) {
+  const unit = useCollateralSymbol();
   const { d, network } = useProtocol();
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
@@ -280,7 +292,7 @@ function AccountCard({ account, address, tx, deployed }: { account?: AccountStat
 
   return (
     <div className="tm-card">
-      <div className="tm-card-h"><span>Account</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>USDC</span></div>
+      <div className="tm-card-h"><span>Account</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>{unit}</span></div>
       <div className="tm-kv"><span className="muted">Available collateral</span><span className="num">{address ? fmtUsd(account?.free ?? 0) : '—'}</span></div>
       <div className="tm-kv"><span className="muted">Locked margin</span><span className="num">{address ? fmtUsd(account?.locked ?? 0) : '—'}</span></div>
       <div className="tm-kv"><span className="muted">Wallet</span><span className="num">{address ? fmtUsd(account?.wallet ?? 0) : '—'}</span></div>
@@ -295,17 +307,19 @@ function AccountCard({ account, address, tx, deployed }: { account?: AccountStat
       <button type="button" className="tm-cta neutral" disabled={!deployed || !address || a <= 0 || a > max + 1e-9 || busy} onClick={submit}>
         {!deployed ? 'Not deployed' : !address ? 'Connect wallet' : a > max + 1e-9 ? 'Amount too high' : mode === 'deposit' ? 'Deposit to Vault' : 'Withdraw'}
       </button>
-      {network === 'testnet' && deployed && address && (
-        <button type="button" className="tm-link" style={{ marginTop: 10 }} disabled={busy} onClick={faucet}>+ Get 10,000 test USDC</button>
-      )}
+      {network === 'testnet' && deployed && (address
+        ? <button type="button" className="tm-link" style={{ marginTop: 10 }} disabled={busy} onClick={faucet}>+ Get 10,000 test USDC</button>
+        : <div className="tm-note">Connect a wallet to get 10,000 free test USDC.</div>)}
     </div>
   );
 }
 
 // ---------------------------------------------------------------- panel
 
-export function OrderTerminal({ symbol, product, setProduct, perp, fees, account, address, option, holding, onClearOption, onOptionSide, tx, deployed, goTo }: {
+export function OrderTerminal({ symbol, product, setProduct, perp, perpsLoaded, fees, account, address, option, holding, onClearOption, onOptionSide, tx, deployed, goTo }: {
   symbol: string;
+  /** the perp market list has arrived; until then a missing `perp` means "not loaded yet", not "none" */
+  perpsLoaded: boolean;
   product: Product;
   setProduct: (p: Product) => void;
   perp?: PerpMarket;
@@ -331,8 +345,10 @@ export function OrderTerminal({ symbol, product, setProduct, perp, fees, account
         {product === 'perps'
           ? (perp
             ? <PerpTicket perp={perp} fees={fees} account={account} address={address} tx={tx} deployed={deployed} goTo={goTo} />
-            : <div className="tm-empty"><b>No perpetual for {symbol}</b>Perps need a trustless onchain price. On Robinhood Chain only BABA has one (Chainlink), so BABA-PERP is the only perpetual. Every stock still has options.</div>)
-          : <OptionTicket option={option} holding={holding} fees={fees} account={account} address={address} tx={tx} deployed={deployed} goTo={goTo} onClear={onClearOption} onSide={onOptionSide} />}
+            : !perpsLoaded && deployed
+            ? <div className="tm-empty"><b>Loading markets…</b></div>
+            : <div className="tm-empty"><b>No perpetual for {symbol}</b>Perps need a live onchain price. On mainnet that means a Chainlink feed, and BABA is the only China stock with one; on testnet a few more run on a keeper-updated feed. Every stock still has options.</div>)
+          : <OptionTicket option={option} holding={holding} fees={fees} account={account} address={address} tx={tx} deployed={deployed} goTo={goTo} onClear={onClearOption} onSide={onOptionSide} hasFeed={!!perp} />}
       </div>
       <AccountCard account={account} address={address} tx={tx} deployed={deployed} />
     </aside>

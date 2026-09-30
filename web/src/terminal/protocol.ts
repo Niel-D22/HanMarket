@@ -1,13 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { usePublicClient, useSwitchChain, useWalletClient, useAccount } from 'wagmi';
+import { useAccount, useConfig, usePublicClient, useSwitchChain } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
+import { createPublicClient, fallback, http } from 'viem';
 import type { Account, Address, Chain, Hash, PublicClient, Transport, WalletClient } from 'viem';
 import { useNetwork, type NetworkKey } from '../contexts/NetworkContext';
-import { CHAINS } from '../web3/chains';
+import { CHAINS, PUBLIC_RPC } from '../web3/chains';
 import {
   erc20Abi, feeAbi, optionsAbi, optionsEventsAbi, oracleAbi, perpsAbi, registryAbi, riskAbi, vaultAbi,
+  vaultLiquidityEventsAbi, vaultTransferEventsAbi,
 } from '../../api/_lib/protocol/abis';
 import { parseDeployment, type Deployment } from '../../api/_lib/protocol/deployments';
+import { scanLogs } from './logScan';
+
+export { scanLogs };
 
 // Everything the terminal reads from the HanMarket contracts, plus one transaction runner.
 // Addresses come from VITE_TESTNET_DEPLOYMENT / VITE_MAINNET_DEPLOYMENT (printed by the deploy script).
@@ -27,6 +33,21 @@ export interface ProtocolContext {
   chain: Chain;
   d: Deployment | null;
   client: PublicClient | undefined;
+  /** reads events over long block ranges; public RPCs only, since a private RPC's free plan may cap that */
+  logClient: PublicClient;
+}
+
+const logClients = new Map<NetworkKey, PublicClient>();
+function logClientFor(network: NetworkKey): PublicClient {
+  let c = logClients.get(network);
+  if (!c) {
+    c = createPublicClient({
+      chain: CHAINS[network],
+      transport: fallback(PUBLIC_RPC[network].map((url) => http(url, { batch: true, retryCount: 2, timeout: 20_000 }))),
+    }) as PublicClient;
+    logClients.set(network, c);
+  }
+  return c;
 }
 
 /** The selected network, its chain, its deployment (null until deployed) and a read client. */
@@ -34,7 +55,7 @@ export function useProtocol(): ProtocolContext {
   const { network, setNetwork } = useNetwork();
   const chain = CHAINS[network];
   const client = usePublicClient({ chainId: chain.id }) as PublicClient | undefined;
-  return { network, setNetwork, chain, d: DEPLOYMENTS[network], client };
+  return { network, setNetwork, chain, d: DEPLOYMENTS[network], client, logClient: logClientFor(network) };
 }
 
 function useReads<T>(key: unknown[], enabled: boolean, fn: (client: PublicClient, d: Deployment) => Promise<T>, refetchInterval = REFRESH) {
@@ -259,9 +280,13 @@ export interface OptionSeries {
 export function useAllSeries() {
   return useReads<OptionSeries[]>(['series'], true, async (client, d) => {
     const count = Number(await client.readContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'seriesCount' }));
-    const raw = await Promise.all(Array.from({ length: count }, (_, i) =>
-      client.readContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'getSeries', args: [BigInt(i)] }),
-    ));
+    // one Multicall3 read for the lot (batchSize is bytes of calldata per call; the default 1024 would split
+    // 200 reads into a dozen requests), not one eth_call per series
+    const raw = await client.multicall({
+      contracts: Array.from({ length: count }, (_, i) => ({ address: d.optionsEngine, abi: optionsAbi, functionName: 'getSeries', args: [BigInt(i)] } as const)),
+      allowFailure: false,
+      batchSize: 65_536,
+    });
     return raw.map((s, i) => ({
       id: i, assetId: s.assetId, isCall: s.isCall, settled: s.settled, expiry: Number(s.expiry),
       strike: usd(s.strike), cap: usd(s.cap), open: usd(s.open),
@@ -289,20 +314,27 @@ export function useOptionHoldings(address: Address | undefined, series: OptionSe
 export interface HistoryRow {
   block: bigint;
   hash: Hash;
-  kind: 'Perp open' | 'Perp update' | 'Perp close' | 'Liquidated' | 'Option buy' | 'Option sell' | 'Option redeem';
+  kind: 'Perp open' | 'Perp update' | 'Perp close' | 'Liquidated' | 'Option buy' | 'Option sell' | 'Option redeem'
+    | 'Deposit' | 'Withdraw' | 'LP deposit' | 'LP withdraw';
   market: string;
   detail: string;
-  amount: number; // USDC paid (-) or received (+)
+  amount: number; // USDC paid (-) or received (+); for a transfer, into HanMarket (+) or back to the wallet (-)
+  /** money moved between the wallet and the vault: neither a gain nor a loss */
+  transfer?: boolean;
 }
 
 export function useHistory(address: Address | undefined, markets: PerpMarket[] | undefined, series: OptionSeries[] | undefined, assetSymbols: string[]) {
-  return useReads<HistoryRow[]>(['history', address], !!address && !!markets && !!series, async (client, d) => {
+  const { network, logClient } = useProtocol();
+  return useReads<HistoryRow[]>(['history', address], !!address && !!markets && !!series, async (_client, d) => {
     const from = BigInt(d.startBlock);
     const perpEvents = perpsAbi.filter((x) => x.type === 'event');
     const optEvents = optionsEventsAbi;
-    const [perpLogs, optLogs] = await Promise.all([
-      client.getLogs({ address: d.perpsEngine, events: perpEvents, args: { account: address } as never, fromBlock: from }).catch(() => []),
-      client.getLogs({ address: d.optionsEngine, events: optEvents, args: { account: address } as never, fromBlock: from }).catch(() => []),
+    const who = address!.toLowerCase();
+    const [perpLogs, optLogs, transferLogs, lpLogs] = await Promise.all([
+      scanLogs(`history:${network}:${d.perpsEngine}:${who}`, logClient, { address: d.perpsEngine, events: perpEvents, args: { account: address } }, from),
+      scanLogs(`history:${network}:${d.optionsEngine}:${who}`, logClient, { address: d.optionsEngine, events: optEvents, args: { account: address } }, from),
+      scanLogs(`history:${network}:${d.vault}:transfers:${who}`, logClient, { address: d.vault, events: vaultTransferEventsAbi, args: { user: address } }, from),
+      scanLogs(`history:${network}:${d.vault}:liquidity:${who}`, logClient, { address: d.vault, events: vaultLiquidityEventsAbi, args: { provider: address } }, from),
     ]);
     const perpName = (id: number) => markets!.find((m) => m.id === id)?.symbol ?? `PERP ${id}`;
     const seriesName = (id: bigint) => {
@@ -334,13 +366,40 @@ export function useHistory(address: Address | undefined, markets: PerpMarket[] |
         rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option redeem', market: seriesName(a.seriesId), detail: `${usd(a.qty)} contracts`, amount: usd(a.payout) - usd(a.fee) });
       }
     }
+    for (const l of [...transferLogs, ...lpLogs] as { eventName: string; args: Record<string, bigint>; blockNumber: bigint; transactionHash: Hash }[]) {
+      const a = l.args;
+      const base = { block: l.blockNumber, hash: l.transactionHash, market: 'Vault', transfer: true };
+      if (l.eventName === 'CollateralDeposited') rows.push({ ...base, kind: 'Deposit', detail: 'Wallet → available collateral', amount: usd(a.amount) });
+      else if (l.eventName === 'CollateralWithdrawn') rows.push({ ...base, kind: 'Withdraw', detail: 'Available collateral → wallet', amount: -usd(a.amount) });
+      else if (l.eventName === 'LiquidityAdded') rows.push({ ...base, kind: 'LP deposit', detail: `Wallet → pool, ${(Number(a.shares) / 1e18).toFixed(4)} hmLP`, amount: usd(a.amount) });
+      else if (l.eventName === 'LiquidityRemoved') rows.push({ ...base, kind: 'LP withdraw', detail: `Pool → wallet, ${(Number(a.shares) / 1e18).toFixed(4)} hmLP`, amount: -usd(a.amount) });
+    }
     return rows.sort((x, y) => Number(y.block - x.block));
   }, 30_000);
 }
 
+// ---------------------------------------------------------------- price source
+
+/**
+ * Where an asset's price comes from. An asset with a perp market has a live onchain feed: Chainlink on mainnet, and on
+ * testnet a feed the HanMarket keeper updates from market data (Chainlink has no testnet equity feeds). Every other asset
+ * has options only, which settle at a price signed by the HanMarket signer.
+ */
+export const priceSource = (network: NetworkKey, hasFeed: boolean) =>
+  !hasFeed ? 'Signed price' : network === 'mainnet' ? 'Chainlink' : 'Testnet feed';
+
+// ---------------------------------------------------------------- settlement token
+
+/**
+ * The settlement token's symbol on a network. Mainnet settles in USDG (Robinhood Chain's native dollar, Paxos); the
+ * testnet uses an open-mint stand-in called USDC. Every amount in the terminal is labelled with this, never a fixed name.
+ */
+export const collateralSymbol = (network: NetworkKey) => (network === 'mainnet' ? 'USDG' : 'USDC');
+export const useCollateralSymbol = () => collateralSymbol(useNetwork().network);
+
 // ---------------------------------------------------------------- formatting
 
-/** colour class for a signed amount: red gain, green loss (China convention), plain when zero */
+/** colour class for a signed amount: green gain, red loss, plain when zero */
 export const tone = (n: number) => (n > 1e-9 ? 'up' : n < -1e-9 ? 'down' : '');
 
 export const fmtUsd = (n: number, digits = 2) =>
@@ -391,7 +450,7 @@ export interface TxState {
  */
 export function useTx() {
   const { chain, client } = useProtocol();
-  const { data: wallet } = useWalletClient({ chainId: chain.id });
+  const config = useConfig();
   const { chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const queryClient = useQueryClient();
@@ -401,6 +460,9 @@ export function useTx() {
     try {
       setState({ stage: 'preparing', label, outcome });
       if (chainId !== chain.id) await switchChainAsync({ chainId: chain.id });
+      // fetched here, not from useWalletClient: right after a network switch that hook still holds the client from
+      // before it (none, on the wrong network), which made the first click after "Wrong network" fail
+      const wallet = await getWalletClient(config, { chainId: chain.id }).catch(() => undefined);
       if (!wallet || !client) throw new Error('Connect a wallet first');
       let hash: Hash | undefined;
       for (const step of steps) {
@@ -419,7 +481,7 @@ export function useTx() {
       setState((s) => ({ ...s, stage: 'failed', error: /reject|denied/i.test(message) ? 'You rejected the request in your wallet' : message }));
       return false;
     }
-  }, [chain.id, chainId, client, queryClient, switchChainAsync, wallet]);
+  }, [chain.id, chainId, client, config, queryClient, switchChainAsync]);
 
   const reset = useCallback(() => setState({ stage: 'idle', label: '' }), []);
   return { state, run, reset, explorer: chain.blockExplorers?.default.url };

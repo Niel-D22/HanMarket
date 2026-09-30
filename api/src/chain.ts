@@ -54,6 +54,19 @@ export function accountFromEnv(name: string): PrivateKeyAccount | null {
   return privateKeyToAccount((raw.startsWith('0x') ? raw : `0x${raw}`) as `0x${string}`);
 }
 
+/**
+ * A role's key on one network: MAINNET_KEEPER_PRIVATE_KEY, TESTNET_PRICE_SIGNER_KEY and so on. Testnet also accepts the
+ * plain name (KEEPER_PRIVATE_KEY) it has always used. Mainnet does not: on testnet the keeper key is also the owner's,
+ * so a mainnet role must be given its own key on purpose and can never pick up a testnet one by accident.
+ */
+export function networkAccount(name: string, network: NetworkKey): PrivateKeyAccount | null {
+  if (network === 'mainnet') return accountFromEnv(`MAINNET_${name}`);
+  return accountFromEnv(`TESTNET_${name}`) ?? accountFromEnv(name);
+}
+
+/** Whether any network has a keeper key, i.e. whether the keeper should run at all. */
+export const hasKeeperKey = () => !!(networkAccount('KEEPER_PRIVATE_KEY', 'testnet') || networkAccount('KEEPER_PRIVATE_KEY', 'mainnet'));
+
 export const walletClientFor = (key: NetworkKey, account: PrivateKeyAccount) =>
   createWalletClient({ account, chain: NETWORKS[key].chain, transport: http(undefined, { retryCount: 3 }) });
 

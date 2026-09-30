@@ -10,3 +10,11 @@ export const IconDocs = () => <svg {...base}><path d="M14 3H6a2 2 0 0 0-2 2v14a2
 export const IconSearch = () => <svg {...base} width={14} height={14}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>;
 export const IconMenu = () => <svg {...base} width={18} height={18}><path d="M4 6h16M4 12h16M4 18h16" /></svg>;
 export const IconWallet = () => <svg {...base} width={15} height={15}><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2" /><path d="M3 6v12a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-3" /></svg>;
+export const IconPanelLeft = () => <svg {...base}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>;
+export const IconPanelRight = () => <svg {...base}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></svg>;
+export const IconKeyboard = () => <svg {...base}><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" /></svg>;
+export const IconChevron = () => <svg {...base} width={14} height={14}><path d="M6 9l6 6 6-6" /></svg>;
+/** the X (formerly Twitter) mark, which is a filled glyph rather than a line icon */
+export const IconX = () => <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>;
+export const IconStrategy = () => <svg {...base}><path d="M3 20h18" /><path d="M4 16l5-9 4 6 3-4 4 7" /></svg>;
+export const IconActivity = () => <svg {...base}><path d="M3 12h4l3-8 4 16 3-8h4" /></svg>;

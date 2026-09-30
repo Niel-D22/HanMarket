@@ -1,4 +1,4 @@
-/* HanMarket docs — ink on rice paper, reading layout */
+/* HanMarket docs: ink on rice paper, reading layout */
 
 body:has(.dx-page) {
   background: var(--hm-bg);
@@ -448,6 +448,80 @@ body:has(.dx-page) {
   margin: 10px 0 0 !important;
 }
 
+/* contract addresses: a real hex string is 42 characters, wider than most phones, so it must wrap or the
+   card overflows sideways, so break-all (not the header/buttons, which stay on one line down to very
+   narrow widths, only stacking as a last resort). */
+.dx-contracts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.dx-contract {
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--dx-paper);
+  border: 1px solid var(--dx-line);
+}
+
+.dx-contract-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dx-contract-name {
+  font-family: "Montserrat", "Inter Tight", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--dx-ink);
+}
+
+.dx-contract-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.78rem;
+}
+
+.dx-contract-actions button {
+  font: inherit;
+  color: var(--dx-red);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.dx-contract-actions a {
+  color: var(--dx-muted);
+  text-decoration: none;
+}
+
+.dx-contract-actions button:hover,
+.dx-contract-actions a:hover {
+  color: var(--dx-ink);
+}
+
+/* tag + class, so this beats .dx-mono's white-space: nowrap on specificity rather than source order.
+   Without it, a 42-char address ignored word-break: break-all and ran past the card at tablet widths */
+code.dx-contract-addr {
+  display: block;
+  margin: 10px 0 8px;
+  white-space: normal;
+  word-break: break-all;
+  color: var(--dx-body);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.dx-contract .dx-small {
+  margin: 0;
+}
+
 .dx-calc-head {
   display: flex;
   justify-content: space-between;
@@ -784,12 +858,18 @@ body:has(.dx-page) {
 @media (max-width: 560px) {
   .dx-steps,
   .dx-hours,
-  .dx-glossary {
+  .dx-glossary,
+  .dx-callouts,
+  .dx-contracts {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .dx-table tbody th {
     width: auto;
+  }
+
+  .dx-contract-addr {
+    font-size: 0.7rem;
   }
 }
 

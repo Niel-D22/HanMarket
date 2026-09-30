@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from 'react';
-import { WagmiProvider, createConfig, http } from 'wagmi';
+import type { Chain } from 'viem';
+import { WagmiProvider, createConfig, fallback, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, connectorsForWallets, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import {
@@ -11,13 +12,15 @@ import {
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import '@rainbow-me/rainbowkit/styles.css';
-import { CHAINS, robinhoodMainnet, robinhoodTestnet } from '../web3/chains';
+import { CHAINS, robinhoodMainnet, robinhoodTestnet, rpcProxyUrl } from '../web3/chains';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useTheme } from '../theme/ThemeProvider';
 
 // WalletConnect (mobile wallets, QR codes) needs a free project id from cloud.reown.com.
 // Without one, only browser-extension wallets are offered, so no request fails with an invalid id.
 const WALLETCONNECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
+/** With WalletConnect, phone browsers can reach wallet apps from the connect modal; without it, see OpenInWallet. */
+export const WALLETCONNECT_ENABLED = !!WALLETCONNECT_ID;
 
 const connectors = connectorsForWallets(
   WALLETCONNECT_ID
@@ -29,12 +32,24 @@ const connectors = connectorsForWallets(
   { appName: 'HanMarket', projectId: WALLETCONNECT_ID || 'not-configured' },
 );
 
+// Reads try this site's RPC proxy first (/api/rpc, which keeps the private RPC key server-side), then the public RPCs.
+// A 429, an outage, an unconfigured proxy (503) or a stall past 10 seconds on one endpoint moves the read on to the next
+// instead of leaving the terminal waiting on it.
+const rpcTransport = (chain: Chain, network: 'testnet' | 'mainnet') => {
+  const proxy = rpcProxyUrl(network);
+  const urls = [...(proxy ? [proxy] : []), ...chain.rpcUrls.default.http];
+  // batches stay under the proxy's per-request cap (100 calls); viem's own default would send up to 1,000 in one
+  return fallback(urls.map((url) => http(url, { batch: { batchSize: 25 }, retryCount: 1, timeout: 10_000 })), { retryCount: 1 });
+};
+
 export const wagmiConfig = createConfig({
   connectors,
+  // contract reads made in the same tick go out as one Multicall3 eth_call instead of one call each
+  batch: { multicall: true },
   chains: [robinhoodTestnet, robinhoodMainnet],
   transports: {
-    [robinhoodTestnet.id]: http(undefined, { batch: true }),
-    [robinhoodMainnet.id]: http(undefined, { batch: true }),
+    [robinhoodTestnet.id]: rpcTransport(robinhoodTestnet, 'testnet'),
+    [robinhoodMainnet.id]: rpcTransport(robinhoodMainnet, 'mainnet'),
   },
 });
 

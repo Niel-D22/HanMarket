@@ -2,40 +2,53 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
 import { LogoMark, LogoText } from '../components/Navbar';
-import { HanperpHero, IVORY, HERO_OVERLAP } from '../components/HanperpHero';
+import { HanperpHero, IVORY, HERO_OVERLAP, HERO_COIN_DELAY } from '../components/HanperpHero';
+import { CoinDock, CoinJourney } from '../components/emblem/CoinJourney';
+import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 import { SplashCursor } from '../components/SplashCursor';
 import { LogoLoop } from '../components/LogoLoop';
 import { BorderGlow } from '../components/BorderGlow';
 import { MagicBento } from '../components/MagicBento';
 import { Coverflow } from '../components/Coverflow';
 import { useTheme } from '../theme/ThemeProvider';
-// Open-source mono logos from web3icons (MIT) — the chain, its settlement layer, the oracle, the settlement asset and wallets
+import { FINE_POINTER, useMediaQuery } from '../utils/useMediaQuery';
+import { X_URL } from '../config/social';
+// Open-source mono logos from web3icons (MIT), trimmed to head's markup: the chain, the settlement
+// token and MetaMask stay. Arbitrum, Chainlink, WalletConnect and Rabby were removed as backend detail
+// that means little to a first-time visitor.
 import robinhoodSvg from '@web3icons/core/svgs/networks/mono/robinhood.svg.js';
-import arbitrumSvg from '@web3icons/core/svgs/networks/mono/arbitrum-one.svg.js';
-import chainlinkSvg from '@web3icons/core/svgs/tokens/mono/LINK.svg.js';
 import usdcSvg from '@web3icons/core/svgs/tokens/mono/USDC.svg.js';
-import walletConnectSvg from '@web3icons/core/svgs/wallets/mono/wallet-connect.svg.js';
-import rabbySvg from '@web3icons/core/svgs/wallets/mono/rabby.svg.js';
+// MetaMask has no mono variant in this set; the row draws every logo as one flat colour anyway (GREY_LOGO).
+import metamaskSvg from '@web3icons/core/svgs/wallets/branded/metamask.svg.js';
 
 const svgUrl = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 const STACK_LOGOS = [
   { label: "Robinhood Chain", svg: robinhoodSvg },
-  { label: "Arbitrum", svg: arbitrumSvg },
-  { label: "Chainlink", svg: chainlinkSvg },
   { label: "USDC", svg: usdcSvg },
-  { label: "WalletConnect", svg: walletConnectSvg },
-  { label: "Rabby", svg: rabbySvg },
+  { label: "MetaMask", svg: metamaskSvg },
 ];
+// Pons Family: Robinhood Chain's own token launchpad, real and live on mainnet since Robinhood Chain's
+// July 2026 launch (not in web3icons, so this is their own logo, fetched from ponsfamily.com directly).
+// A PNG, not an SVG string, so it renders through <img src> rather than the svgUrl() data-URI helper.
+const PONS_LOGO = "/logos/pons.png";
+// Every logo in the row in the same grey, MetaMask's orange fox included. A wrapper, not the <img>'s own filter:
+// the images already carry --hm-logo-filter (invert in one theme, `none` in the other), and "grayscale(1) none" is invalid.
+const GREY_LOGO: React.CSSProperties = { display: "block", filter: "var(--hm-logo-mono)", opacity: 0.42 };
 
 /* =============================================================================
-   HANMARKET — landing page. Ink-wash on rice paper, Han red accents.
-   Options on Hong Kong & China equities, settled in USDC on Robinhood Chain.
+   HANMARKET landing page. Ink-wash on rice paper, Han red accents.
+   Options and perpetuals on Hong Kong & China equities, settled in USDC on
+   Robinhood Chain. Both are the product, so copy on this page should never
+   promote one and leave the other unmentioned.
 ============================================================================= */
 
 /* HanMarket brand board: Han red, ivory, charcoal, stone. Light theme. */
 const CARD = "var(--hm-card)";
 const BORDER = "rgba(var(--hm-line-c), 0.08)";
-const RED = "var(--hm-up)";      /* price up (China convention: red = up) */
+const RED = "var(--hm-crimson)"; /* Han crimson, for the brand's red accents (not a price direction) */
+const GAIN = "var(--hm-up)";     /* a price or P&L going up: green */
+const LOSS = "var(--hm-down)";   /* going down: red */
 const ORANGE = "var(--hm-red)";   /* Han red */
 const GOLD = "var(--hm-red)";     /* accent text: gold is too light to read on ivory, so accents use Han red */
 const TEXT = "var(--hm-text)";
@@ -54,12 +67,10 @@ const EYEBROW: React.CSSProperties = {
   letterSpacing: "0.28em", textTransform: "uppercase", fontWeight: 600,
 };
 
-// Set VITE_X_URL in web/.env once the real account exists.
-const X_URL = import.meta.env.VITE_X_URL as string | undefined;
 
 /* ---------- hand-drawn area chart: cubic Bézier, brand gradient fill, no charting lib ---------- */
 function MiniChart({ up = true, id = "hero" }: { up?: boolean; id?: string }) {
-  const stroke = up ? RED : "var(--hm-down)"; // China convention: red = up, green = down
+  const stroke = up ? GAIN : LOSS;
   const gid = `mc-${id.replace(/[^a-zA-Z0-9]/g, "")}`; // unique per chart: several render on one page
   // hand-authored path across a 220x64 box, ending high (up) or low (down)
   const d = up
@@ -84,84 +95,46 @@ function MiniChart({ up = true, id = "hero" }: { up?: boolean; id?: string }) {
 
 /* ---------- hero dashboard preview: HanMarket's own trading UI, not a generic bank template ---------- */
 /* ---------- Engines section: straight into the product, no browser-chrome mockup in between.
-   Four cards, one per deployed contract, each with the number that contract actually tracks —
-   not a screenshot of the terminal, the protocol itself. */
+   Four cards, one per deployed contract, each with the number that contract actually tracks,
+   rather than a screenshot of the terminal. */
 
-const engineChip: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 999,
-  fontFamily: SANS, fontSize: 9.5, fontWeight: 600, letterSpacing: "0.03em",
-  background: "rgba(var(--hm-red-c), 0.1)", border: "1px solid rgba(var(--hm-red-c), 0.28)", color: GOLD,
-};
-
-function VaultEngineVisual() {
-  return (
-    <div style={{ width: "100%", maxWidth: 260 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5, marginBottom: 6 }}>
-        <span style={{ color: "rgba(var(--hm-ink-c), 0.5)" }}>Pool</span>
-        <span style={{ color: TEXT, fontWeight: 600 }}>1,000,000 USDC</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5 }}>
-        <span style={{ color: "rgba(var(--hm-ink-c), 0.5)" }}>Reserved</span>
-        <span style={{ color: GOLD, fontWeight: 600 }}>42,180 USDC</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 99, background: "rgba(var(--hm-line-c), 0.08)", overflow: "hidden", marginTop: 8 }}>
-        <div style={{ width: "4.2%", height: "100%", background: GRADIENT }} />
-      </div>
-    </div>
-  );
-}
-
-function OptionsEngineVisual() {
+/* What you can actually trade, not the contracts behind it. Vault and OracleRouter used to have their
+   own cards here, which read as backend architecture to a first-time visitor ("what's an OracleRouter?").
+   That detail didn't disappear, it moved to Docs → Contract addresses, where the audience already wants
+   it: someone about to verify the protocol, not someone deciding whether to try it. */
+function OptionsProductVisual() {
   const cell = (k: string, v: string) => (
     <div key={k} style={{ textAlign: "center" }}>
       <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: TEXT }}>{v}</div>
       <div style={{ fontFamily: SANS, fontSize: 9.5, letterSpacing: "0.06em", color: "rgba(var(--hm-ink-c), 0.45)", marginTop: 3 }}>{k}</div>
     </div>
   );
-  return <div style={{ display: "flex", gap: 22 }}>{cell("DELTA", "0.58")}{cell("THETA", "−0.12")}{cell("IV", "43.8%")}</div>;
+  return <div style={{ display: "flex", gap: 22 }}>{cell("STRIKE", "$480")}{cell("PREMIUM", "$12.40")}{cell("CAP", "$20")}</div>;
 }
 
-function PerpsEngineVisual() {
+function PerpsProductVisual() {
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, color: TEXT }}>
-        3x <span style={{ fontSize: 12, color: "rgba(var(--hm-ink-c), 0.45)", fontWeight: 400, fontFamily: SANS }}>max leverage</span>
+        10x <span style={{ fontSize: 12, color: "rgba(var(--hm-ink-c), 0.45)", fontWeight: 400, fontFamily: SANS }}>max leverage</span>
       </div>
       <div style={{ fontFamily: MONO, fontSize: 12.5, color: RED, marginTop: 8 }}>Funding +0.0032% / 1h</div>
     </div>
   );
 }
 
-function OracleRouterVisual() {
-  const row = (label: string, source: string) => (
-    <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: TEXT }}>{label}</span>
-      <span style={engineChip}>{source}</span>
-    </div>
-  );
-  return <div style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", maxWidth: 240 }}>{row("BABA", "Chainlink")}{row("32 others", "Signed price")}</div>;
-}
-
-const ENGINE_CARDS = [
+const PRODUCT_CARDS = [
   {
-    label: "01", title: "Vault", description: "Single USDC pool, counterparty to every trade. Payouts are reserved before a position opens, never after.",
-    visual: <VaultEngineVisual />,
+    label: "01", title: "Options", description: "Calls and puts on Tencent, Alibaba, BYD and more. Cash-settled in USDC. Every payout is capped, so a buyer can never win more than a seller can lose.",
+    visual: <OptionsProductVisual />, cta: "Trade options",
   },
   {
-    label: "02", title: "Options Engine", description: "Cash-settled European calls and puts, capped payout, priced by realised volatility and a signed quote.",
-    visual: <OptionsEngineVisual />,
-  },
-  {
-    label: "03", title: "Perpetuals Engine", description: "Isolated-margin perpetuals with funding driven by open-interest skew, not a fixed rate.",
-    visual: <PerpsEngineVisual />,
-  },
-  {
-    label: "04", title: "Oracle Router", description: "Chainlink where Robinhood has tokenized the equity; an EIP-712 signed price everywhere else.",
-    visual: <OracleRouterVisual />,
+    label: "02", title: "Perpetuals", description: "Leveraged long or short on BABA, Tencent, PDD and more, up to 10x, with no expiry. Funding between longs and shorts keeps the price honest.",
+    visual: <PerpsProductVisual />, cta: "Trade perpetuals",
   },
 ];
 
-/** The Protocol: one glowing spec panel, not a bento grid — deliberately a different shape from the
+/** The Protocol: one glowing spec panel, not a bento grid. It is deliberately a different shape from the
  * How It Works cards just above it, so the two sections don't read as the same component twice. */
 function ProtocolPanel() {
   return (
@@ -172,15 +145,18 @@ function ProtocolPanel() {
       glowIntensity={0.75}
       coneSpread={36}
       colors={[RED, ORANGE, GOLD]}
-      style={{ maxWidth: 1100, margin: "0 auto", overflow: "hidden", boxShadow: "0 40px 90px -34px rgba(var(--hm-shadow-c), 0.3)" }}
+      style={{ maxWidth: 860, margin: "0 auto", overflow: "hidden", boxShadow: "0 40px 90px -34px rgba(var(--hm-shadow-c), 0.3)" }}
     >
-      <div className="protocol-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
-        {ENGINE_CARDS.map((c) => (
+      <div className="protocol-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
+        {PRODUCT_CARDS.map((c) => (
           <div key={c.title} className="protocol-col" style={{ padding: "34px 26px", display: "flex", flexDirection: "column", gap: 14 }}>
             <span style={{ fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: "0.08em" }}>{c.label}</span>
             <div style={{ minHeight: 54, display: "flex", alignItems: "center" }}>{c.visual}</div>
             <h3 style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, margin: 0 }}>{c.title}</h3>
             <p style={{ fontFamily: SANS, fontSize: 13.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{c.description}</p>
+            <Link to="/terminal" style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: "var(--hm-red)", textDecoration: "none", marginTop: "auto", paddingTop: 4 }}>
+              {c.cta} →
+            </Link>
           </div>
         ))}
       </div>
@@ -199,7 +175,7 @@ const chip: React.CSSProperties = {
 function WalletVisual() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <span style={chip}>MetaMask <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--hm-down)" }} /></span>
+      <span style={chip}>MetaMask <span style={{ width: 6, height: 6, borderRadius: "50%", background: GAIN }} /></span>
       <span style={{ ...chip, opacity: 0.6 }}>Robinhood Wallet</span>
     </div>
   );
@@ -275,7 +251,7 @@ function ExpiryVisual() {
 function ReclaimVisual() {
   return (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: RED }}>+500.00</div>
+      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: GAIN }}>+500.00</div>
       <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>USDC returned</div>
     </div>
   );
@@ -295,7 +271,7 @@ function PerpMarketVisual() {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontFamily: MONO, color: "rgba(var(--hm-ink-c), 0.55)", padding: "0 4px" }}>
         <span>Funding / 1h <span style={{ color: RED }}>+0.0032%</span></span>
-        <span>up to 3x</span>
+        <span>up to 10x</span>
       </div>
     </div>
   );
@@ -318,9 +294,9 @@ function PerpTicketVisual() {
         <span style={chip}>Short</span>
       </div>
       {line("Market", "BABA-PERP")}
-      {line("Leverage", "3x")}
+      {line("Leverage", "10x")}
       {line("Margin", "500 USDC")}
-      {line("Liq. price", "$92.40", true)}
+      {line("Liq. price", "$106.10", true)}
       <div style={{ marginTop: 10, textAlign: "center", padding: "10px 0", borderRadius: 999, background: "var(--hm-solid)", color: "var(--hm-on-solid)", fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
         Confirm in wallet
       </div>
@@ -340,7 +316,7 @@ function FundingVisual() {
 function ClosePositionVisual() {
   return (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: RED }}>+128.40</div>
+      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: GAIN }}>+128.40</div>
       <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>USDC · position closed</div>
     </div>
   );
@@ -367,7 +343,7 @@ const PERPS_STEPS = [
   { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
   { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
   {
-    label: "03", title: "Pick a market", description: "BABA-PERP, priced off the Chainlink oracle, up to 3x leverage.",
+    label: "03", title: "Pick a market", description: "BABA-PERP or another of seven perp markets, priced off an onchain feed, up to 10x leverage.",
     visual: <PerpMarketVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
   },
   {
@@ -416,7 +392,7 @@ interface Market {
   price: string;
   change: number; // % over 24h
   chain: [strike: string, call: string, put: string][]; // middle row is at-the-money
-  /** the issuer's own logo, not HanMarket's — shown for identification, same as any quote screen */
+  /** the issuer's own logo, not HanMarket's, shown for identification like on any quote screen */
   logo: string;
 }
 
@@ -430,7 +406,7 @@ const MARKETS: Market[] = [
 
 function MarketCard({ market }: { market: Market }) {
   const up = market.change >= 0;
-  const changeColor = up ? RED : "var(--hm-down)"; // China convention: red up, green down
+  const changeColor = up ? GAIN : LOSS;
   const col = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } as const;
   return (
     <div style={{
@@ -529,7 +505,7 @@ function RevealHeading({ eyebrow, title, lead, align = "center", maxWidth = 720,
       </Reveal>
       {lead && (
         <Reveal delay={0.2} y={18}>
-          <p style={{ fontFamily: SANS, fontSize: 15.5, color: MUTED_2, maxWidth: 560, margin: "18px auto 0", lineHeight: 1.6 }}>{lead}</p>
+          <p style={{ fontFamily: SANS, fontSize: 15.5, color: MUTED_2, maxWidth: 560, margin: align === "left" ? "18px 0 0" : "18px auto 0", lineHeight: 1.6 }}>{lead}</p>
         </Reveal>
       )}
     </div>
@@ -583,7 +559,6 @@ function FinalCta() {
   const paperY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [-30, 30]);
   const buildingY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [60, -60]);
   const cloudsY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [40, -30]);
-  const sealY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [40, -40]);
 
   return (
     <motion.div
@@ -604,7 +579,6 @@ function FinalCta() {
         .cta-lantern { position: absolute; left: 44.8%; top: 39.5%; width: 14.5%; transform-origin: 50% 1%; }
         .cta-clouds { left: -4%; right: -4%; bottom: -12%; }
         .cta-clouds img { width: 100%; height: auto; display: block; }
-        .cta-seal { right: 4%; bottom: 12%; width: clamp(40px, 4vw, 58px); aspect-ratio: 1; }
         .cta-content { position: relative; z-index: 2; padding: clamp(40px, 7vw, 88px); max-width: 620px; }
         .cta-title { font-family: ${DISPLAY}; font-weight: 600; font-size: clamp(40px, 5.4vw, 76px); line-height: 1; letter-spacing: -0.01em; color: ${TEXT}; margin: 16px 0 0; }
         .cta-rule { width: 64px; height: 2px; background: ${ORANGE}; margin: 26px 0 22px; transform-origin: 0 50%; }
@@ -621,7 +595,6 @@ function FinalCta() {
           .cta-building { width: 125%; right: -48%; top: -6%; opacity: 0.55; }
           .cta-content { padding: 210px 24px 36px; }
           .cta-clouds { bottom: -6%; opacity: 0.6; }
-          .cta-seal { display: none; }
         }
       `}</style>
 
@@ -661,20 +634,6 @@ function FinalCta() {
         </motion.div>
       </motion.div>
 
-      <motion.div className="cta-layer cta-seal" style={{ y: sealY }} aria-hidden="true">
-        <motion.svg
-          viewBox="0 0 64 64" width="100%" height="100%"
-          initial={{ opacity: 0, scale: 1.8, rotate: -14 }}
-          whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.45, delay: 1.1, ease: [0.5, 0, 0.75, 0] }}
-        >
-          <rect x="2" y="2" width="60" height="60" rx="6" fill={ORANGE} />
-          <rect x="6" y="6" width="52" height="52" rx="3" fill="none" stroke="#F6F2EB" strokeOpacity="0.55" strokeWidth="1.2" />
-          <text x="32" y="44" textAnchor="middle" fontSize="36" fontFamily="'Noto Serif SC', serif" fontWeight="700" fill="#F6F2EB">漢</text>
-        </motion.svg>
-      </motion.div>
-
       <div className="cta-content">
         <Reveal y={14} delay={0.15}><p style={EYEBROW}>Start trading</p></Reveal>
         <Reveal delay={0.25}>
@@ -688,7 +647,7 @@ function FinalCta() {
           transition={{ duration: 0.9, delay: 0.5, ease: [0.76, 0, 0.24, 1] }}
         />
         <Reveal delay={0.45} y={18}>
-          <p className="cta-lead">Options on Tencent, Alibaba, Xiaomi, BYD and more, settled in USDC on Robinhood Chain. Connect a wallet and place your first trade on testnet.</p>
+          <p className="cta-lead">Options and perpetuals on Tencent, Alibaba, Xiaomi, BYD and more, settled in USDC on Robinhood Chain. Connect a wallet and place your first trade on testnet.</p>
         </Reveal>
         <Reveal delay={0.6} y={18}>
           <div className="cta-actions">
@@ -703,12 +662,17 @@ function FinalCta() {
 }
 
 /** How It Works: a toggle over two six-step walkthroughs, options and perpetuals, since they diverge
- * after "deposit" — one has an expiry and a premium, the other leverage and funding. */
+ * after "deposit": one has an expiry and a premium, the other leverage and funding. */
 function HowItWorksSection() {
   const [product, setProduct] = useState<"options" | "perps">("options");
   return (
     <section id="how" className="lp-section" style={{ padding: "100px 20px" }}>
-      <RevealHeading eyebrow="How It Works" title="From wallet to trade in six steps" marginBottom={32} />
+      <div className="dock-lockup" style={{ marginBottom: 32 }}>
+        <CoinDock />
+        <div className="dock-lockup-text">
+          <RevealHeading eyebrow="How It Works" title="From wallet to trade in six steps" align="left" marginBottom={0} />
+        </div>
+      </div>
       <Reveal y={14} amount={0.6}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 44 }}>
           <HowItWorksToggle product={product} onChange={setProduct} />
@@ -728,8 +692,23 @@ function HowItWorksSection() {
 }
 
 export default function HanPerpLanding() {
+  const reduceMotion = useReducedMotion();
   const location = useLocation();
   const { theme } = useTheme();
+  const finePointer = useMediaQuery(FINE_POINTER);
+
+  // Smooth scrolling (Lenis): a wheel step glides instead of jumping 100px at once, so everything tied to the
+  // scroll (the hero's layers, the coin's journey) moves continuously. Touch scrolling is left native.
+  const lenisRef = useRef<Lenis | null>(null);
+  useEffect(() => {
+    if (reduceMotion) return;
+    const lenis = new Lenis({ lerp: 0.085, anchors: true });
+    lenisRef.current = lenis;
+    let raf = 0;
+    const tick = (time: number) => { lenis.raf(time); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); lenis.destroy(); lenisRef.current = null; };
+  }, [reduceMotion]);
 
   // A full page load (refresh, or opening a pasted URL) starts at the top, so the intro plays from the
   // beginning. Restoring an old scroll position or a stale #hash dropped visitors mid-page, often inside
@@ -752,23 +731,41 @@ export default function HanPerpLanding() {
       setTimeout(() => {
         const id = location.hash.replace('#', '');
         const element = document.getElementById(id);
-        if (element) element.scrollIntoView({ behavior: 'smooth' });
+        if (!element) return;
+        if (lenisRef.current) lenisRef.current.scrollTo(element);
+        else element.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     }
   }, [location]);
 
   return (
-    <div style={{ background: SECTION_BG, color: TEXT, fontFamily: SANS }}>
+    <div style={{ background: SECTION_BG, color: TEXT, fontFamily: SANS, overflowX: "clip" }}>
       <style>{`
         @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; } }
-        /* protocol spec panel: a vertical rule between columns on wide screens, a horizontal one once
-           they stack, so the divider always sits between cards rather than around them */
-        .protocol-col + .protocol-col { border-left: 1px solid rgba(var(--hm-line-c), 0.08); }
-        @media (max-width: 900px) {
-          .protocol-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .protocol-col:nth-child(3) { border-left: 1px solid rgba(var(--hm-line-c), 0.08); }
-          .protocol-col:nth-child(3), .protocol-col:nth-child(4) { border-top: 1px solid rgba(var(--hm-line-c), 0.08); }
+        /* the coin (CoinJourney, z-index 5) sits under the sections' content, in the docks they leave open for it */
+        .lp-section { position: relative; z-index: 6; }
+        /* every section keeps a place for the coin (CoinDock) in its own layout */
+        .dock-row { display: flex; align-items: center; justify-content: center; gap: clamp(28px, 4vw, 64px); max-width: 1200px; margin: 0 auto; }
+        .dock-row-main { flex: 1 1 auto; min-width: 0; max-width: 880px; }
+        .dock-lockup { display: flex; align-items: center; justify-content: center; gap: clamp(24px, 3.5vw, 52px); max-width: 1000px; margin: 0 auto; }
+        .dock-lockup > .dock-lockup-text { flex: 0 1 auto; min-width: 0; }
+        .dock-faq { display: grid; grid-template-columns: minmax(170px, 250px) minmax(0, 720px); gap: clamp(32px, 5vw, 72px); justify-content: center; align-items: start; max-width: 1100px; margin: 0 auto; }
+        .dock-faq-side { position: sticky; top: 30vh; display: flex; justify-content: center; padding-top: 24px; }
+        @media (max-width: 820px) {
+          /* one column: the dock sits centred above whatever it was beside */
+          .dock-row, .dock-lockup { flex-direction: column; gap: 22px; }
+          .dock-row .coin-dock, .dock-lockup .coin-dock { order: -1; --dock: 104px; }
+          .dock-lockup-text > div, .dock-row-main > div:first-child { text-align: center !important; }
+          .dock-row-note { text-align: center; margin: 20px auto 0 !important; }
+          .dock-faq { grid-template-columns: 1fr; gap: 12px; }
+          .dock-faq-side { position: static; padding-top: 0; }
+          .dock-faq-side .coin-dock { --dock: 104px; }
+          .dock-faq-text > div:first-child { text-align: center !important; }
         }
+
+        /* protocol spec panel: a vertical rule between the two cards, a horizontal one once they stack,
+           so the divider always sits between cards rather than around them */
+        .protocol-col + .protocol-col { border-left: 1px solid rgba(var(--hm-line-c), 0.08); }
         @media (max-width: 560px) {
           .protocol-grid { grid-template-columns: 1fr !important; }
           .protocol-col { border-left: none !important; border-top: 1px solid rgba(var(--hm-line-c), 0.08); }
@@ -786,7 +783,8 @@ export default function HanPerpLanding() {
 
       {/* cursor trail: React Bits SplashCursor with its default look, colour only */}
       {/* white ink trails belong on rice paper; on the dark ground the fluid layer veils the hero art */}
-      {theme === "light" && (
+      {/* a cursor effect: on a touch screen every scroll gesture would run a full-screen fluid simulation */}
+      {theme === "light" && finePointer && (
         <SplashCursor
           DENSITY_DISSIPATION={4}
           VELOCITY_DISSIPATION={2}
@@ -801,50 +799,85 @@ export default function HanPerpLanding() {
         />
       )}
       <HanperpHero />
+      <CoinJourney delay={HERO_COIN_DELAY} reduce={reduceMotion} />
 
-      {/* THE PROTOCOL — first thing under the clouds: straight into the four deployed contracts, no
-          mocked screenshot standing in for them. The mechanics and the asset/leverage/pool figures are
-          real (checked against the live testnet contracts); the per-position numbers (reserved, greeks,
-          funding) are a worked example, same convention as the Markets section below. */}
+      {/* WHAT YOU CAN TRADE: first thing under the clouds: straight into the product, no mocked
+          screenshot standing in for it. Two cards, not four: Vault and OracleRouter used to have their
+          own cards, which read as backend architecture ("what's an OracleRouter?") rather than something
+          to try. That detail moved to Docs → Contract addresses, for the audience who wants it. */}
       <section id="engines" className="lp-section" style={{ position: "relative", zIndex: 6, marginTop: `-${HERO_OVERLAP}`, padding: "40px 20px 100px" }}>
-        <RevealHeading eyebrow="The Protocol" title="Four contracts, one engine" marginBottom={48} />
-        <ProtocolPanel />
-        <p style={{ textAlign: "center", fontFamily: SANS, fontSize: 12.5, color: MUTED_2, maxWidth: 520, margin: "20px auto 0" }}>
-          Pool size, leverage and oracle routing are live figures. Reserved amount, greeks and funding are a worked example.
-        </p>
+        <div className="dock-row">
+          <div className="dock-row-main">
+            <RevealHeading eyebrow="What You Can Trade" title="Options and perpetuals" align="left" maxWidth={880} marginBottom={40} />
+            <ProtocolPanel />
+            <p className="dock-row-note" style={{ fontFamily: SANS, fontSize: 12.5, color: MUTED_2, maxWidth: 520, margin: "20px 0 0" }}>
+              Max leverage is a live figure. Strike, premium and funding shown here are a worked example. See
+              Markets below for live pricing.
+            </p>
+          </div>
+          <CoinDock />
+        </div>
       </section>
 
-      {/* BUILT WITH — the real stack, not fake "trusted by" client logos */}
+      {/* BUILT WITH: the real stack, not fake "trusted by" client logos. Logos only, all in one grey (head's
+          call): the names stay as each logo's accessible name and hover title. HanMarket's own mark leads the row. */}
       <section style={{ padding: "20px 0 36px" }} aria-label="Built with">
+        {/* Every logo as a flat silhouette: colour to black, and alpha pushed to solid, so a logo drawn with shading or
+            see-through layers (the Pons P, MetaMask's fox) comes out as one even shape like the rest. */}
+        <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
+          <filter id="hm-logo-mono" colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+            <feComponentTransfer><feFuncA type="linear" slope="4" intercept="0" /></feComponentTransfer>
+          </filter>
+        </svg>
         <Reveal y={16} amount={0.6}>
         <LogoLoop
           showLabels={false}
-          gap={96}
+          // LogoLoop's own default (rgba(232,222,216,0.55)) is light beige for a dark backdrop; this
+          // section sits on the page's light ivory ground, where that colour nearly vanishes into it.
+          color="rgba(var(--hm-ink-c), 0.6)"
+          gap={64}
           repeat={4}
           speed={40}
-          items={STACK_LOGOS.map(({ label, svg }) => ({
-            label,
-            node: <img src={svgUrl(svg)} alt="" width={36} height={36} style={{ display: "block", opacity: 0.5, filter: "var(--hm-logo-filter)" }} />,
-          }))}
+          items={[
+            {
+              label: "HanMarket",
+              node: <span style={GREY_LOGO}><LogoMark size={36} /></span>,
+            },
+            ...STACK_LOGOS.map(({ label, svg }) => ({
+              label,
+              node: <span style={GREY_LOGO}><img src={svgUrl(svg)} alt="" width={36} height={36} style={{ display: "block", filter: "var(--hm-logo-filter)" }} /></span>,
+            })),
+            {
+              label: "Pons Family",
+              node: <span style={GREY_LOGO}><img src={PONS_LOGO} alt="" width={36} height={36} style={{ display: "block", filter: "var(--hm-logo-filter)" }} /></span>,
+            },
+          ]}
         />
         </Reveal>
       </section>
 
-      {/* HOW IT WORKS — the first real question a first-time visitor has: how do I actually use this.
+      {/* HOW IT WORKS: the first real question a first-time visitor has: how do I actually use this.
           Options and perps are different enough after step 2 (an expiry and a premium vs. leverage and
           funding) that one six-step list would have to lie about one of them, so this is a toggle over
           two, not one list with a caption. */}
       <HowItWorksSection />
 
-      {/* MARKETS — proof the product is real: the actual assets, not just a pitch */}
+      {/* MARKETS: proof the product is real, the actual assets rather than a pitch */}
       <section id="markets" className="lp-section" style={{ padding: "100px 20px", overflowX: "hidden" }}>
         <div style={{ maxWidth: 1250, margin: "0 auto", textAlign: "center" }}>
-          <RevealHeading
-            eyebrow="Markets"
-            title={<>Options on real Hong Kong &amp; China equities</>}
-            lead="Prices, strikes and premiums shown here are illustrative. Live pricing arrives when markets launch."
-            marginBottom={48}
-          />
+          <div className="dock-lockup" style={{ marginBottom: 48 }}>
+            <div className="dock-lockup-text">
+              <RevealHeading
+                eyebrow="Markets"
+                title={<>Real Hong Kong &amp; China equities</>}
+                lead="Every stock has an option chain, shown here as an illustration. BABA also trades as a perpetual. Live pricing arrives when markets launch."
+                align="left"
+                marginBottom={0}
+              />
+            </div>
+            <CoinDock />
+          </div>
           <Reveal y={60} amount={0.2}>
           <Coverflow
             ariaLabel="Example markets. Use the arrow keys to browse."
@@ -893,20 +926,25 @@ export default function HanPerpLanding() {
         </div>
       </section>
 
-      {/* FAQ — the honest answers, including the ones that are less flattering (no audit yet, devnet) */}
+      {/* FAQ: the honest answers, including the ones that are less flattering (no audit yet, devnet) */}
       <section id="faq" className="lp-section" style={{ padding: "100px 20px" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <RevealHeading eyebrow="FAQ" title="Questions traders actually ask" marginBottom={40} />
-          <FAQItem index={0} q="What is an options contract, in plain terms?" a="A call option lets you lock in today's price to buy an asset later; a put does the opposite for selling. On HanMarket, everything is priced in USDC and settled onchain — you never touch the real Hong Kong shares." />
-          <FAQItem index={1} q="Is my collateral safe?" a="HanMarket is self-custodial: your wallet holds your collateral, not HanMarket. That said, the protocol is new and has not yet been through a third-party security audit. Trade with that in mind, and only with funds you can afford to risk." />
-          <FAQItem index={2} q="Is this live on mainnet?" a="Not yet. HanMarket runs on Robinhood Chain testnet while the contract is tested. A mainnet launch will be announced once it has been audited." />
-          <FAQItem index={3} q="Which wallets are supported?" a="Any EVM wallet: MetaMask, Rabby, the Robinhood Wallet or anything that connects through WalletConnect. Keep a little ETH on Robinhood Chain for gas." />
-          <FAQItem index={4} q="Why Hong Kong and China equities specifically?" a="Names like Tencent, Alibaba, Xiaomi and BYD give traders outside China exposure to major Chinese companies without a local brokerage account, with every trade paid in USDC." />
-          <FAQItem index={5} q="How is the price at expiry decided?" a="Alibaba settles with Chainlink's onchain Robinhood BABA / USD feed, so nobody can change it. The other stocks have no onchain feed on Robinhood Chain yet, so they settle with a price signed by HanMarket. Each market shows which one it uses before you trade." />
+        <div className="dock-faq">
+          <div className="dock-faq-side"><CoinDock sticky /></div>
+          <div className="dock-faq-text">
+          <RevealHeading eyebrow="FAQ" title="Questions traders actually ask" align="left" marginBottom={40} />
+          <FAQItem index={0} q="What is an options contract, in plain terms?" a="A call option lets you lock in today's price to buy an asset later; a put does the opposite for selling. On HanMarket, everything is priced in USDC and settled onchain. You never touch the real Hong Kong shares." />
+          <FAQItem index={1} q="What is a perpetual, in plain terms?" a="A leveraged long or short with no expiry date. You hold it as long as you want and close it whenever you choose. Longs and shorts pay each other funding depending on which side is more crowded, so the price stays honest without a settlement date." />
+          <FAQItem index={2} q="How much leverage can I use on a perpetual, and what does it cost?" a="Every perp market allows up to 10x while HanMarket is on testnet. Leverage and margin are linked: 10x needs about 10% margin, and a position is liquidated once its equity falls to 5% of its size. That is roughly a 5% move against you, sooner once fees and funding are counted, so a small move can wipe out the margin. A price that gaps past the liquidation level is a loss the vault absorbs rather than you. The limit is a risk setting, not a fixed ceiling, and the contracts have not been audited yet, so trade with funds you can afford to lose." />
+          <FAQItem index={3} q="Is my collateral safe?" a="HanMarket is self-custodial: your wallet holds your collateral, not HanMarket. That said, the protocol is new and has not yet been through a third-party security audit. Trade with that in mind, and only with funds you can afford to risk." />
+          <FAQItem index={4} q="Is this live on mainnet?" a="Not yet. HanMarket runs on Robinhood Chain testnet while the contract is tested. A mainnet launch will be announced once it has been audited." />
+          <FAQItem index={5} q="Which wallets are supported?" a="Any EVM wallet: MetaMask, Rabby, the Robinhood Wallet or anything that connects through WalletConnect. Keep a little ETH on Robinhood Chain for gas." />
+          <FAQItem index={6} q="Why Hong Kong and China equities specifically?" a="Names like Tencent, Alibaba, Xiaomi and BYD give traders outside China exposure to major Chinese companies without a local brokerage account, with every trade paid in USDC." />
+          <FAQItem index={7} q="How is the settlement or liquidation price decided?" a="On mainnet, Alibaba (options and BABA-PERP) uses Chainlink's onchain Robinhood BABA / USD feed, so nobody can change it. On testnet, Chainlink has no equity feeds, so BABA and the six other perp markets use a feed the HanMarket keeper updates from market data. Every other stock has no onchain feed, so its options settle with a price signed by HanMarket. Each market shows which one it uses before you trade." />
+          </div>
         </div>
       </section>
 
-      {/* CLOSING CTA — end on the one action that matters */}
+      {/* CLOSING CTA: end on the one action that matters */}
       <section id="start" className="lp-section" style={{ padding: "40px 20px 110px" }}>
         <FinalCta />
       </section>
@@ -935,7 +973,7 @@ export default function HanPerpLanding() {
           )}
         </span>
         <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", color: MUTED_2 }}>
-          Options on Hong Kong &amp; China equities · Built on Robinhood Chain
+          Options and perpetuals on Hong Kong &amp; China equities · Built on Robinhood Chain
           <span style={{ display: "block", marginTop: 6, fontFamily: "'Noto Sans SC'," + SANS, letterSpacing: "0.2em" }}>连接东西 · Connecting East and West</span>
         </span>
         <span className="lp-footer-note" style={{ fontFamily: SANS, fontSize: 12, maxWidth: 360, textAlign: "right", lineHeight: 1.5, color: MUTED_2 }}>

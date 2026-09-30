@@ -11,7 +11,8 @@
     "e2e:testnet": "ts-node scripts/e2e-testnet.ts",
     "deploy:safe": "ts-node scripts/deploy-safe.ts",
     "sync:protocol": "node scripts/sync-protocol.js",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "showcase": "ts-node scripts/showcase.ts"
   },
   "keywords": [],
   "author": "",

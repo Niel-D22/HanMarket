@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { parseDeployment } from '../../api/_lib/protocol/deployments';
 
 export type NetworkKey = 'testnet' | 'mainnet';
 export type NetworkType = NetworkKey;
@@ -11,12 +12,17 @@ interface NetworkContextState {
 }
 
 const STORAGE_KEY = 'hanperp-network';
+/**
+ * Until the mainnet contracts exist, a saved "mainnet" choice is not restored: every visit opens on testnet, where the
+ * markets are, instead of on an empty mainnet terminal the visitor switched to once and forgot about.
+ */
+const MAINNET_LIVE = !!parseDeployment(import.meta.env.VITE_MAINNET_DEPLOYMENT as string | undefined);
 const NetworkContext = createContext<NetworkContextState | undefined>(undefined);
 
 function initialNetwork(): NetworkKey {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'mainnet' || saved === 'testnet') return saved;
+    if (saved === 'testnet' || (saved === 'mainnet' && MAINNET_LIVE)) return saved;
   } catch {
     // storage unavailable (private mode): fall through to the default
   }

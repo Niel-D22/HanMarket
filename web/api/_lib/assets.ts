@@ -57,7 +57,7 @@ export const ASSETS: ChinaAsset[] = [
   { symbol: 'MCHI', name: 'iShares MSCI China', cn: '明晟中国', board: 'ADR', currency: 'USD', yahoo: 'MCHI', pythFeedId: '33e3853fe3382522aec843bcc3e795bc62ef9d48a47fe2ea7e777926a7ac70f7' },
 ];
 
-// FX.USD/HKD — HK prices are converted to USD because every market settles in USDC.
+// FX.USD/HKD: HK prices are converted to USD because every market settles in USDC.
 export const USD_HKD_FEED_ID = '19d75fde7fee50fe67753fdc825e583594eb2f51ae84e114a5246c4ab23aff4c';
 
 export const findAsset = (symbol: string) =>

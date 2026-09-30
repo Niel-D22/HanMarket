@@ -1,5 +1,5 @@
 import { encodeAbiParameters, type Address, type PrivateKeyAccount } from 'viem';
-import { NETWORKS, accountFromEnv, publicClientFor, walletClientFor, type NetworkKey } from './chain';
+import { NETWORKS, networkAccount, publicClientFor, walletClientFor, type NetworkKey } from './chain';
 import { aggregatorAbi, optionsAbi, oracleAbi, perpsAbi, registryAbi, riskAbi, testnetFeedAbi, SETTLEMENT_TYPES } from './protocol/abis';
 import { isPerpSessionOpen, isSessionOpen } from './protocol/sessions';
 import { findAsset } from './assets';
@@ -244,18 +244,21 @@ async function pushTestnetFeeds(key: NetworkKey, keeper: PrivateKeyAccount) {
 function runner(name: string, job: (key: NetworkKey, keeper: PrivateKeyAccount) => Promise<void>) {
   let running = false;
   return async () => {
-    const keeper = accountFromEnv('KEEPER_PRIVATE_KEY');
-    if (!keeper || running) return;
+    if (running) return;
     running = true;
     try {
-      for (const key of NETS) await job(key, keeper).catch((e) => logger.error(`[${name}:${key}] ${short(e)}`));
+      for (const key of NETS) {
+        // each network with its own keeper key (MAINNET_KEEPER_PRIVATE_KEY on mainnet); a network without one is skipped
+        const keeper = networkAccount('KEEPER_PRIVATE_KEY', key);
+        if (keeper) await job(key, keeper).catch((e) => logger.error(`[${name}:${key}] ${short(e)}`));
+      }
     } finally {
       running = false;
     }
   };
 }
 
-export const runSettlement = runner('settle', (key, keeper) => settleNetwork(key, keeper, accountFromEnv('PRICE_SIGNER_KEY')));
+export const runSettlement = runner('settle', (key, keeper) => settleNetwork(key, keeper, networkAccount('PRICE_SIGNER_KEY', key)));
 export const runSessions = runner('sessions', syncSessions);
 export const runLiquidations = runner('liquidate', liquidateNetwork);
 export const runTestnetFeeds = runner('feeds', pushTestnetFeeds);

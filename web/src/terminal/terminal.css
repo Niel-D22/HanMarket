@@ -1,5 +1,5 @@
 /* HanMarket terminal: dark, dense, financial-terminal layout (after the Orionis trade page).
-   China convention: red = up / buy / long, green = down / sell / short. Gold from the coin mark is the accent. */
+   Green = up / long / gain, red = down / short / loss, as on every exchange. Gold from the coin mark is the accent. */
 
 .tm {
   --bg: #0a0a0b;
@@ -13,10 +13,10 @@
   --dim: #5f5f69;
   --gold: #c9a36a;
   --gold-2: #e2c28d;
-  --up: #f04a52;
-  --up-bg: rgba(240, 74, 82, 0.12);
-  --down: #26c281;
-  --down-bg: rgba(38, 194, 129, 0.12);
+  --up: #26c281;
+  --up-bg: rgba(38, 194, 129, 0.12);
+  --down: #f04a52;
+  --down-bg: rgba(240, 74, 82, 0.12);
   --warn: #e0a84a;
   --sans: 'Inter Tight', -apple-system, system-ui, 'Segoe UI', sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -58,15 +58,16 @@
   --dim: #9c9487;
   --gold: #8a6a3f;
   --gold-2: #6f522d;
-  --up: #c8102e;
-  --up-bg: rgba(200, 16, 46, 0.08);
-  --down: #1a8553;
-  --down-bg: rgba(26, 133, 83, 0.09);
+  --up: #1a8553;
+  --up-bg: rgba(26, 133, 83, 0.09);
+  --down: #c8102e;
+  --down-bg: rgba(200, 16, 46, 0.08);
   --warn: #9a6a12;
   --on-text: #fbf9f5;
-  --on-down: #ffffff;
+  --on-up: #ffffff;
 }
-.tm { --on-text: #0b0b0c; --on-down: #06140d; }
+/* text on a filled green button: dark on the bright dark-theme green, white on the deeper light-theme one */
+.tm { --on-text: #0b0b0c; --on-up: #06140d; }
 :root:not([data-theme='dark']) .tm .tm-pill.chainlink { color: #2f5fc4; border-color: rgba(47, 95, 196, 0.35); }
 :root:not([data-theme='dark']) .tm .tm-toast,
 :root:not([data-theme='dark']) .tm .tm-search-results { box-shadow: 0 18px 40px rgba(60, 30, 20, 0.18); }
@@ -156,7 +157,9 @@
 .tm-col::-webkit-scrollbar-thumb, .tm-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
 
 /* ---------------------------------------------------------------- sidebar */
-.tm-side { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; }
+.tm-side { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; container-type: inline-size; }
+/* a narrow sidebar (iPad, small laptops) drops the volume so the ticker (0700.HK) is not cut to "07…" */
+@container (max-width: 250px) { .tm-row-btn .r2 .dim { display: none; } }
 .tm-side-h {
   display: flex;
   justify-content: space-between;
@@ -238,7 +241,7 @@
 .tm-stat span:first-child { font-size: 11px; color: var(--muted); }
 .tm-stat span:last-child { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
 .tm-pill { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); }
-.tm-pill.open { color: var(--down); border-color: rgba(38, 194, 129, 0.4); }
+.tm-pill.open { color: var(--up); border-color: rgba(38, 194, 129, 0.4); }
 .tm-pill.closed { color: var(--warn); border-color: rgba(224, 168, 74, 0.4); }
 .tm-pill.chainlink { color: #7aa7ff; border-color: rgba(122, 167, 255, 0.4); }
 
@@ -256,6 +259,8 @@
 .tm-trades-row span:nth-child(2), .tm-trades-row span:nth-child(3), .tm-trades-h span:nth-child(2), .tm-trades-h span:nth-child(3) { text-align: right; }
 .tm-empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
 .tm-empty b { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 4px; }
+.tm-empty-btn { display: block; margin: 12px auto 0; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; }
+.tm-empty-btn:hover { background: var(--panel-3); }
 
 .tm-bottom { flex: 0 0 auto; min-height: 280px; display: flex; flex-direction: column; background: var(--panel); }
 .tm-bottom-h { display: flex; align-items: center; justify-content: space-between; padding-right: 16px; border-bottom: 1px solid var(--line); }
@@ -278,8 +283,8 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tm-strike.atm { color: var(--gold-2); }
 .tm-itm { background: rgba(201, 163, 106, 0.035); }
 .tm-q { border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; font-family: var(--mono); font-size: 12.5px; min-width: 64px; }
-.tm-q.bid { background: var(--down-bg); color: var(--down); }
-.tm-q.ask { background: var(--up-bg); color: var(--up); }
+.tm-q.bid { background: var(--up-bg); color: var(--up); }
+.tm-q.ask { background: var(--down-bg); color: var(--down); }
 .tm-q:hover:not(:disabled) { border-color: currentColor; }
 .tm-q[aria-pressed='true'] { border-color: currentColor; box-shadow: 0 0 0 1px currentColor; }
 .tm-q:disabled { opacity: 0.35; background: none; }
@@ -295,8 +300,8 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tm-card-h { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 12px; }
 .tm-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px; gap: 3px; }
 .tm-seg button { border: none; border-radius: 8px; padding: 10px; background: none; font-weight: 700; color: var(--muted); font-size: 14px; }
-.tm-seg button.long[aria-pressed='true'] { background: var(--up); color: #fff; }
-.tm-seg button.short[aria-pressed='true'] { background: var(--down); color: var(--on-down); }
+.tm-seg button.long[aria-pressed='true'] { background: var(--up); color: var(--on-up); }
+.tm-seg button.short[aria-pressed='true'] { background: var(--down); color: #fff; }
 .tm-types { display: flex; gap: 16px; margin: 14px 0 12px; border-bottom: 1px solid var(--line); }
 .tm-types button { border: none; background: none; padding: 0 0 8px; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tm-types button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--text); }
@@ -320,8 +325,8 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tm-kv span:first-child { color: var(--muted); }
 .tm-kv span:last-child { font-family: var(--mono); text-align: right; }
 .tm-cta { width: 100%; margin-top: 14px; border: none; border-radius: 10px; padding: 13px; font-weight: 800; font-size: 14.5px; }
-.tm-cta.long { background: var(--up); color: #fff; }
-.tm-cta.short { background: var(--down); color: var(--on-down); }
+.tm-cta.long { background: var(--up); color: var(--on-up); }
+.tm-cta.short { background: var(--down); color: #fff; }
 .tm-cta.neutral { background: var(--text); color: var(--on-text); }
 .tm-cta:disabled { background: var(--panel-3) !important; color: var(--dim) !important; }
 .tm-note { margin-top: 10px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
@@ -379,12 +384,12 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   padding: 0;
   font: inherit;
   font-weight: 700;
-  color: var(--down);
+  color: var(--up);
   cursor: pointer;
   white-space: nowrap;
 }
 .tm-toast-go:hover { text-decoration: underline; }
-.tm-toast-go:focus-visible { outline: 2px solid var(--down); outline-offset: 2px; border-radius: 3px; }
+.tm-toast-go:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; border-radius: 3px; }
 
 /* ---------------------------------------------------------------- responsive */
 @media (max-width: 1280px) {
@@ -412,6 +417,8 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .tm-expiries > span:last-child { margin-left: 0 !important; flex-basis: 100%; }
 }
 @media (max-width: 480px) {
+  /* the candle legend on one short line, clear of the price scale on the right */
+  .tm-ohlc { font-size: 10px; gap: 1px 8px; right: 64px; }
   .tm-top { padding: 0 12px; gap: 8px; }
   .tm-net button { padding: 5px 7px; }
   .tm-stats { gap: 18px; padding: 10px 14px; }
@@ -441,3 +448,195 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tm-star.on { color: var(--gold); }
 .tm-star:hover { color: var(--gold-2); }
 .tm-star:focus-visible { opacity: 1; }
+
+/* ---------------------------------------------------------------- chart: toolbar, OHLC legend, source switch */
+.tm-chart-col { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.tm-chart-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.tm-chart-bar-r { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tm-chart-note { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tm-chart-body { flex: 1; min-height: 0; position: relative; }
+.tm-ohlc {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  pointer-events: none;
+}
+.tm-ohlc i { font-style: normal; color: var(--dim); margin-right: 2px; }
+.tm-ohlc b { font-weight: 600; }
+.tm-engine { display: flex; border: 1px solid var(--line-2); border-radius: 8px; padding: 2px; background: var(--panel-2); }
+.tm-engine button { border: none; background: none; padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.tm-engine button[aria-pressed='true'] { background: var(--panel-3); color: var(--gold-2); }
+
+/* ---------------------------------------------------------------- top bar icon buttons (panels, shortcuts, X) */
+.tm-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--muted);
+  text-decoration: none;
+}
+.tm-icon-btn:hover { color: var(--text); background: var(--panel-3); }
+.tm-icon-btn[aria-pressed='true'] { color: var(--gold-2); border-color: var(--gold); }
+/* layout and keyboard controls mean nothing where the sidebar is already a drawer and there is no keyboard */
+@media (max-width: 1000px) { .tm-desk-only { display: none; } }
+/* the phone top bar (menu, mark, theme, network, wallet) already fills 390px; the X link stays on the landing page there */
+@media (max-width: 520px) { .tm-x { display: none; } }
+
+/* ---------------------------------------------------------------- collapsible panels */
+@media (min-width: 1281px) {
+  .tm-body.no-side { grid-template-columns: 0 minmax(0, 1fr) 340px; }
+  .tm-body.no-right { grid-template-columns: 236px minmax(0, 1fr) 0; }
+  .tm-body.no-side.no-right { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .tm-mid.trades-collapsed { grid-template-columns: minmax(0, 1fr) 30px; }
+}
+@media (min-width: 1001px) and (max-width: 1280px) {
+  .tm-body.no-side { grid-template-columns: 0 minmax(0, 1fr) 320px; }
+  .tm-body.no-right { grid-template-columns: 210px minmax(0, 1fr) 0; }
+  .tm-body.no-side.no-right { grid-template-columns: 0 minmax(0, 1fr) 0; }
+}
+/* a folded side panel keeps its grid slot at zero width, so the views that span columns 2-3 stay in place */
+@media (min-width: 1001px) {
+  .tm-body.no-side .tm-side, .tm-body.no-right .tm-right { visibility: hidden; overflow: hidden; border: 0; }
+}
+.tm-fold {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.tm-fold:hover { color: var(--text); background: var(--panel-2); }
+.tm-fold-icon { display: inline-grid; transition: transform 0.15s ease; }
+.tm-bottom.is-collapsed { min-height: 0; }
+.tm-bottom.is-collapsed .tm-bottom-h { border-bottom: none; }
+.tm-bottom.is-collapsed .tm-fold-icon { transform: rotate(180deg); }
+.tm-bottom-h .tm-tabs { min-width: 0; overflow-x: auto; }
+.tm-bottom-h .tm-tabs::-webkit-scrollbar { display: none; }
+.tm-rail { align-items: center; padding-top: 10px; }
+.tm-rail button {
+  writing-mode: vertical-rl;
+  border: none;
+  background: none;
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.tm-rail button:hover { color: var(--text); }
+
+/* ---------------------------------------------------------------- options flow, all-expiries chain */
+.tm-flow-sum { display: flex; gap: 28px; padding: 10px 16px; border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
+.tm-table tr.tm-exp-row td {
+  text-align: left;
+  background: var(--panel-2);
+  color: var(--gold-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ---------------------------------------------------------------- keyboard shortcuts dialog */
+.tm-modal-back { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.5); }
+.tm-modal {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.tm-modal-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 15px; }
+.tm-kb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
+.tm kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin-left: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--panel-3);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* chain column switch (Market | Greeks), kept apart from the expiry chips it sits beside */
+.tm-chip-group { display: inline-flex; gap: 4px; margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--line); }
+
+/* Funding & OI: long/short skew bar and the market on screen */
+.tm-skew { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: var(--down-bg); overflow: hidden; vertical-align: middle; }
+.tm-skew i { display: block; height: 100%; background: var(--up); opacity: 0.75; }
+.tm-table tr.tm-row-current td { background: var(--panel-2); }
+
+/* ---------------------------------------------------------------- ticker tape */
+.tm { grid-template-rows: 30px 52px minmax(0, 1fr); }
+.tm-ticker { overflow: hidden; border-bottom: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+.tm-ticker-run { display: inline-flex; animation: tm-ticker 120s linear infinite; }
+.tm-ticker-run > span { display: inline-flex; }
+.tm-ticker:hover .tm-ticker-run, .tm-ticker:focus-within .tm-ticker-run { animation-play-state: paused; }
+.tm-ticker button { border: none; background: none; padding: 0 16px; height: 29px; font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.tm-ticker button b { color: var(--text); }
+.tm-ticker button:hover b { color: var(--gold-2); }
+@keyframes tm-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .tm-ticker { overflow-x: auto; }
+  .tm-ticker-run { animation: none; }
+}
+/* phones: the drawer menu opens under the top bar, and the ticker would sit on top of it */
+@media (max-width: 1000px) { .tm-ticker { display: none; } }
+
+/* ---------------------------------------------------------------- strategies */
+.tm-fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.tm-field { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); min-width: 120px; }
+.tm-field select, .tm-field input {
+  height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text);
+  padding: 0 10px; font-family: var(--mono); font-size: 13px;
+}
+.tm-field select:focus, .tm-field input:focus { outline: none; border-color: var(--gold); }
+.tm-payoff { width: 100%; height: 240px; margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.tm-payoff .curve { fill: none; stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.tm-payoff .up-fill { fill: var(--up-bg); }
+.tm-payoff .down-fill { fill: var(--down-bg); }
+.tm-payoff .axis { stroke: var(--line-2); vector-effect: non-scaling-stroke; }
+.tm-payoff .spot { stroke: var(--gold); stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.tm-payoff .be { fill: var(--gold-2); }
+.tm-payoff .label { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.tm-chart .t-reset { border: 1px solid var(--line-2); background: none; color: var(--muted); padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.tm-chart .t-reset:hover { color: var(--text); }
+
+/* "Open in your wallet" sheet for phone browsers without a wallet (OpenInWallet.tsx) */
+.tm-wallet-app { max-width: 420px; }
+.tm-wallet-app-list { display: grid; gap: 10px; margin: 14px 0 4px; }
+.tm-wallet-app-list a { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* the terminal fills the screen: scrolling a panel to its end must not drag or bounce the whole app on iOS */
+.tm { overscroll-behavior: none; }
+.tm-col, .tm-scroll { overscroll-behavior: contain; }

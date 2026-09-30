@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {MarketRegistry} from "../src/core/MarketRegistry.sol";
 import {OracleRouter} from "../src/oracle/OracleRouter.sol";
@@ -19,6 +20,7 @@ import {IVault} from "../src/interfaces/IVault.sol";
 import {IPerpsEngine} from "../src/interfaces/IPerpsEngine.sol";
 import {MockUSDC} from "../test/mocks/MockUSDC.sol";
 import {TestnetPriceFeed} from "../src/testnet/TestnetPriceFeed.sol";
+import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
 
 /**
  * Deploys the whole protocol, registers the asset catalogue and opens BABA-PERP.
@@ -34,6 +36,16 @@ import {TestnetPriceFeed} from "../src/testnet/TestnetPriceFeed.sol";
  *   QUOTE_SIGNER    signs option quotes (the pricing service)
  *   KEEPER          creates series and opens/closes perp sessions
  *   SEED_LIQUIDITY  testnet only: MockUSDC minted into the pool, default 1,000,000
+ *
+ * Risk limits, in whole dollars (defaults are the testnet's; size them to the pool's real capital on mainnet):
+ *   PERP_MAX_POSITION      largest single BABA-PERP position, notional        (default 50,000)
+ *   PERP_OI_CAP            open interest cap per side of BABA-PERP            (default 500,000)
+ *   OPTIONS_RESERVE_CAP    most the vault may reserve for one asset's options (default 100,000)
+ *   MAX_UTILIZATION_BPS    share of the pool that open positions may reserve  (default 8,000 = 80%)
+ *
+ * On mainnet (chain 4663) the script refuses to run unless OWNER is a contract (the Safe multisig), the keeper and the
+ * signers are separate from it, the settlement token has 6 decimals and BABA_FEED is a live 8-decimal Chainlink feed.
+ * Run it through contracts/script/mainnet/deploy-mainnet.sh, which checks all of this before anything is sent.
  *
  *   forge script script/Deploy.s.sol --rpc-url robinhood_testnet --private-key $KEY --broadcast
  */
@@ -72,6 +84,7 @@ contract Deploy is Script {
         d.usdc = vm.envOr("USDC_ADDRESS", address(0));
         bool mainnet = block.chainid == 4663;
         uint256 startBlock = block.number;
+        if (mainnet) _mainnetGuards(deployer, owner, treasury, keeper, priceSigner, quoteSigner, d.usdc, babaFeed);
 
         vm.startBroadcast();
 
@@ -105,7 +118,7 @@ contract Deploy is Script {
             }),
             7_000 // 70% of fees to LPs
         );
-        d.risk = new RiskManager(deployer, keeper, 8_000);
+        d.risk = new RiskManager(deployer, keeper, uint16(vm.envOr("MAX_UTILIZATION_BPS", uint256(8_000))));
         d.vault = new Vault(IERC20(d.usdc), deployer);
         d.options = new OptionsEngine(
             IMarketRegistry(address(d.registry)),
@@ -137,19 +150,29 @@ contract Deploy is Script {
         for (uint256 i; i < adr.length; i++) _asset(d, adr[i], address(0));
 
         {
+            // Leverage is a risk setting, not a ceiling in the code. The defaults are the conservative ones: 3x needs 33%
+            // initial margin against a 10% maintenance margin, a wide cushion. 10x needs 10% initial margin, so the
+            // maintenance margin has to come down with it (5% below) and a gap through it becomes a loss for the pool.
+            // A testnet that should show 10x sets PERP_MAX_LEVERAGE=10 PERP_INITIAL_MARGIN_BPS=1000
+            // PERP_MAINTENANCE_MARGIN_BPS=500; a mainnet deploy should only move off the defaults on purpose.
+            uint256 maxLev = vm.envOr("PERP_MAX_LEVERAGE", uint256(3));
+            uint256 initialMargin = vm.envOr("PERP_INITIAL_MARGIN_BPS", uint256(3_334));
+            uint256 maintenanceMargin = vm.envOr("PERP_MAINTENANCE_MARGIN_BPS", uint256(1_000));
+            require(maxLev <= 50 && initialMargin <= 10_000 && maintenanceMargin < initialMargin, "bad PERP_* margin env");
+
             uint32 perp = d.registry.addPerpMarket("BABA-PERP", baba);
             d.risk.setPerpRisk(
                 perp,
                 IRiskManager.PerpRisk({
-                    maxLeverage: 3,
-                    initialMarginBps: 3_334,
-                    maintenanceMarginBps: 1_000,
+                    maxLeverage: uint16(maxLev),
+                    initialMarginBps: uint16(initialMargin),
+                    maintenanceMarginBps: uint16(maintenanceMargin),
                     maxProfitBps: 10_000,
                     fundingInterval: 1 hours,
                     maxPriceAge: 3 days, // the feed updates on a 0.5% move or once a day; weekends are covered by sessions
                     fundingRatePerInterval: 1e14, // 0.01% per hour at a fully one-sided market
-                    maxPositionNotional: 50_000 * ONE,
-                    openInterestCap: 500_000 * ONE
+                    maxPositionNotional: vm.envOr("PERP_MAX_POSITION", uint256(50_000)) * ONE,
+                    openInterestCap: vm.envOr("PERP_OI_CAP", uint256(500_000)) * ONE
                 })
             );
             console2.log("BABA-PERP market", perp);
@@ -208,6 +231,30 @@ contract Deploy is Script {
         id = d.registry.addAsset(symbol, oracleId, address(0), true, live);
         if (live) d.oracle.setChainlinkFeed(oracleId, feed, 3 days);
         else d.oracle.setSignedFeed(oracleId);
-        d.risk.setOptionsReserveCap(id, 100_000 * ONE);
+        d.risk.setOptionsReserveCap(id, vm.envOr("OPTIONS_RESERVE_CAP", uint256(100_000)) * ONE);
+    }
+
+    /// Mainnet only: stop before the first transaction if any input is the kind of mistake that cannot be undone.
+    function _mainnetGuards(
+        address deployer,
+        address owner,
+        address treasury,
+        address keeper,
+        address priceSigner,
+        address quoteSigner,
+        address token,
+        address babaFeed
+    ) internal view {
+        require(owner != deployer && owner.code.length > 0, "mainnet: OWNER must be the Safe multisig (a contract)");
+        require(treasury != deployer, "mainnet: TREASURY must not be the deployer");
+        require(keeper != owner && keeper != deployer, "mainnet: KEEPER must be its own key");
+        require(priceSigner != address(0) && quoteSigner != address(0), "mainnet: set PRICE_SIGNER and QUOTE_SIGNER");
+        require(priceSigner != owner && quoteSigner != owner, "mainnet: signers must not be the owner");
+        require(token != address(0) && token.code.length > 0, "mainnet: USDC_ADDRESS has no contract");
+        require(IERC20Metadata(token).decimals() == 6, "mainnet: settlement token must have 6 decimals");
+        require(babaFeed.code.length > 0, "mainnet: BABA_FEED has no contract");
+        require(AggregatorV3Interface(babaFeed).decimals() == 8, "mainnet: BABA_FEED must have 8 decimals");
+        (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(babaFeed).latestRoundData();
+        require(answer > 0 && block.timestamp - updatedAt < 3 days, "mainnet: BABA_FEED is not live");
     }
 }

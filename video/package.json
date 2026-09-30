@@ -1,0 +1,21 @@
+{
+  "name": "hanmarket-video",
+  "private": true,
+  "description": "HanMarket motion videos, made with Remotion (React). npm run studio to preview, npm run render to export.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts HanMarketIntro out/hanmarket-intro.mp4",
+    "still": "remotion still src/index.ts HanMarketIntro out/still.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "@remotion/google-fonts": "4.0.529",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5.9.0"
+  }
+}

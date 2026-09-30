@@ -76,7 +76,7 @@ async function pythPrices(feedIds: string[]): Promise<Record<string, { price: nu
 }
 
 // Some networks (several Indonesian ISPs, for one) block robinhood.com, and a run from there would quietly
-// fall back to Yahoo's previous close — strikes and the onchain testnet feed would then disagree with the
+// fall back to Yahoo's previous close; strikes and the onchain testnet feed would then disagree with the
 // price the website shows. PRICES_URL borrows the snapshot from a deployed HanMarket API instead.
 const upstream = () => process.env.PRICES_URL;
 
@@ -134,7 +134,7 @@ async function refresh(): Promise<Snapshot> {
       publishTime: rh?.generatedAt ?? p?.publishTime ?? y?.publishTime ?? Math.floor(Date.now() / 1000),
       halted: rh?.halted,
       // Yahoo's high and low cover the exchange's regular session, but Robinhood's tokenized shares keep
-      // trading after it closes. Widening the range to the live price keeps the header honest — without
+      // trading after it closes. Widening the range to the live price keeps the header honest. Without
       // this, a stock that moved after hours shows a price above its own "24h High".
       high: y?.high ? Math.max(y.high, price) : undefined,
       low: y?.low ? Math.min(y.low, price) : undefined,
@@ -165,14 +165,35 @@ export const CANDLE_RANGES = {
 } as const;
 export type CandleRange = keyof typeof CANDLE_RANGES;
 
+// The terminal picks a candle size (a timeframe) rather than a look-back window; each gets the longest
+// look-back Yahoo serves for that interval (1m: 7d, 5m/15m: 60d, 60m: 730d) capped to what fills a chart.
+export const CANDLE_TIMEFRAMES = {
+  '1m': { range: '1d', interval: '1m' },
+  '5m': { range: '5d', interval: '5m' },
+  '15m': { range: '1mo', interval: '15m' },
+  '1h': { range: '3mo', interval: '60m' },
+  '1d': { range: '1y', interval: '1d' },
+  '1w': { range: '5y', interval: '1wk' },
+} as const;
+export type CandleTimeframe = keyof typeof CANDLE_TIMEFRAMES;
+export interface CandleSpec { range: string; interval: string }
+
+const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** The Yahoo range + interval for `?tf=` (a timeframe) or the older `?range=`; null when neither is known. */
+export function pickCandleSpec(tf: string | undefined, range: string | undefined): CandleSpec | null {
+  if (tf) return has(CANDLE_TIMEFRAMES, tf.toLowerCase()) ? CANDLE_TIMEFRAMES[tf.toLowerCase() as CandleTimeframe] : null;
+  const key = (range || '1M').toUpperCase();
+  return has(CANDLE_RANGES, key) ? CANDLE_RANGES[key as CandleRange] : null;
+}
+
 const candleCache = new Map<string, { at: number; data: unknown }>();
 
-export async function getCandles(asset: ChinaAsset, rangeKey: CandleRange) {
-  const key = `${asset.symbol}:${rangeKey}`;
+export async function getCandles(asset: ChinaAsset, { range, interval }: CandleSpec) {
+  const key = `${asset.symbol}:${range}:${interval}`;
   const hit = candleCache.get(key);
   if (hit && Date.now() - hit.at < 60_000) return hit.data;
 
-  const { range, interval } = CANDLE_RANGES[rangeKey];
   const json = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(asset.yahoo)}?interval=${interval}&range=${range}`);
   const r = json?.chart?.result?.[0];
   const q = r?.indicators?.quote?.[0];

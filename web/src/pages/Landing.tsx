@@ -41,51 +41,6 @@ const LOGO_TONE = 0.42;
 const GREY_LOGO: React.CSSProperties = { display: "block", filter: "var(--hm-logo-mono)", opacity: LOGO_TONE };
 const SHADED_LOGO: React.CSSProperties = { display: "block", opacity: LOGO_TONE };
 
-/* Line icons for the "why onchain" cards, from Lucide (ISC licence): coins, search-check, chart-candlestick and
-   wallet, drawn at a finer stroke than Lucide's default to sit with the serif headings. */
-const WHY_ICONS = {
-  coins: (
-    <>
-      <path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" />
-      <path d="M15 6h1v4" />
-      <path d="m6.134 14.768.866-.5 2 3.464" />
-      <circle cx="16" cy="8" r="6" />
-    </>
-  ),
-  verify: (
-    <>
-      <path d="m8 11 2 2 4-4" />
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </>
-  ),
-  candles: (
-    <>
-      <path d="M9 5v4" />
-      <rect width="4" height="6" x="7" y="9" rx="1" />
-      <path d="M9 15v2" />
-      <path d="M17 3v2" />
-      <rect width="4" height="8" x="15" y="5" rx="1" />
-      <path d="M17 13v3" />
-      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
-    </>
-  ),
-  wallet: (
-    <>
-      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
-      <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
-    </>
-  ),
-};
-type WhyIcon = keyof typeof WHY_ICONS;
-function LineIcon({ name, size = 24 }: { name: WhyIcon; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {WHY_ICONS[name]}
-    </svg>
-  );
-}
-
 /* =============================================================================
    HANMARKET landing page. Ink-wash on rice paper, Han red accents.
    Options and perpetuals on Hong Kong & China equities, settled in USDC on
@@ -94,7 +49,6 @@ function LineIcon({ name, size = 24 }: { name: WhyIcon; size?: number }) {
 ============================================================================= */
 
 /* HanMarket brand board: Han red, ivory, charcoal, stone. Light theme. */
-const CARD = "var(--hm-card)";
 const BORDER = "rgba(var(--hm-line-c), 0.08)";
 const RED = "var(--hm-crimson)"; /* Han crimson, for the brand's red accents (not a price direction) */
 const GAIN = "var(--hm-up)";     /* a price or P&L going up: green */
@@ -940,33 +894,47 @@ export default function HanPerpLanding() {
         </div>
       </section>
 
-      {/* WHY ONCHAIN */}
+      {/* WHY ONCHAIN: four plain facts set like notes on a scroll, a brushed character over each, hairlines between.
+          No cards or icons. Every claim is checkable: the fees are FeeManager's (contracts/script/Deploy.s.sol), and
+          Vault.withdraw has no pause. */}
       <section id="why" className="lp-section" style={{ padding: "20px 20px 100px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
-          {([
-            ["coins", "Low fees", "Cents of gas on an Ethereum L2, and a small fee on premiums only."],
-            ["verify", "Transparent", "Collateral, trades and settlement all live onchain and are verifiable on Robinhood Chain."],
-            ["candles", "Real HK & China equities", "Calls and puts on Tencent, Alibaba, Xiaomi, BYD and more."],
-            ["wallet", "Self-custodied", "Your wallet holds your collateral. HanMarket never takes custody of user funds."],
-          ] as [WhyIcon, string, string][]).map(([icon, t, d], i) => (
+        <style>{`
+          .why-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid rgba(var(--hm-line-c), 0.16); border-bottom: 1px solid rgba(var(--hm-line-c), 0.16); }
+          .why-item { padding: 36px 28px 40px; text-align: left; }
+          .why-item + .why-item { border-left: 1px solid rgba(var(--hm-line-c), 0.16); }
+          .why-char { display: block; font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif; font-size: 58px; line-height: 1; color: ${TEXT}; opacity: 0.9; }
+          .why-title { font-family: ${DISPLAY}; font-size: 24px; font-weight: 600; line-height: 1.15; color: ${TEXT}; margin: 24px 0 10px; }
+          .why-text { font-family: ${SANS}; font-size: 15px; line-height: 1.6; color: ${MUTED}; margin: 0; }
+          @media (max-width: 900px) {
+            .why-grid { grid-template-columns: repeat(2, 1fr); }
+            .why-item:nth-child(3) { border-left: none; }
+            .why-item:nth-child(n + 3) { border-top: 1px solid rgba(var(--hm-line-c), 0.16); }
+          }
+          @media (max-width: 520px) {
+            .why-grid { grid-template-columns: 1fr; }
+            .why-item { padding: 28px 2px 30px; }
+            .why-item + .why-item { border-left: none; border-top: 1px solid rgba(var(--hm-line-c), 0.16); }
+            .why-char { font-size: 50px; }
+          }
+        `}</style>
+        <div className="why-grid">
+          {[
+            ["股", "Hong Kong & China equities", "Options on 33 Hong Kong and China names: Tencent, Alibaba, Xiaomi, BYD and more."],
+            ["明", "Settled in the open", "Collateral, trades and settlement are contract calls on Robinhood Chain. Anyone can check them on the explorer."],
+            ["守", "No company account", "Your collateral sits in the vault contract. Your free balance can be withdrawn at any time, even while trading is paused."],
+            ["廉", "Fees in plain numbers", "1% of the premium on options, 0.08% of size on perpetuals, and gas that costs cents."],
+          ].map(([char, title, text], i) => (
             <motion.div
-              key={t}
-              initial={{ opacity: 0, y: 40 }}
+              key={title}
+              className="why-item"
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.8, delay: i * 0.1, ease: REVEAL_EASE }}
-              style={{ height: "100%" }}
+              transition={{ duration: 0.8, delay: i * 0.08, ease: REVEAL_EASE }}
             >
-              <BorderGlow borderRadius={22} backgroundColor={CARD} glowRadius={180} colors={[GOLD]} style={{ padding: "30px 24px", textAlign: "left", height: "100%" }}>
-                <span style={{
-                  width: 52, height: 52, borderRadius: "50%", display: "grid", placeItems: "center",
-                  background: "var(--hm-chip)", border: "1px solid rgba(var(--hm-gold-c), 0.28)", color: "var(--hm-gold)",
-                }}>
-                  <LineIcon name={icon} />
-                </span>
-                <h3 style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, margin: "16px 0 8px" }}>{t}</h3>
-                <p style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.55, color: MUTED, margin: 0 }}>{d}</p>
-              </BorderGlow>
+              <span className="why-char" aria-hidden="true">{char}</span>
+              <h3 className="why-title">{title}</h3>
+              <p className="why-text">{text}</p>
             </motion.div>
           ))}
         </div>

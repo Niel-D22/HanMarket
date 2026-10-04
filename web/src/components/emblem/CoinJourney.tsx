@@ -8,7 +8,7 @@ import { isCoarsePointer } from "../../utils/useMediaQuery";
 /* ============================================================================
    The HanMarket coin's journey down the landing page.
 
-   The 3D coin (public/hero/emblem.glb) lives in one fixed layer above the page.
+   The 3D coin (built in emblemScene.ts) lives in one fixed layer above the page.
    It starts in the hero's logo slot (HeroCoinSlot), spins in and grows a little
    with the hero's scroll, then moves down the page from dock to dock. Every
    section up to the FAQ keeps a place for it in its own layout (CoinDock):
@@ -23,7 +23,6 @@ import { isCoarsePointer } from "../../utils/useMediaQuery";
    With reduced motion it never takes off: every dock shows the flat logo.
 ============================================================================ */
 
-const MODEL_URL = "/hero/emblem.glb";
 /** stacking: above the hero, below the page's sections (lp-section: 6) */
 export const COIN_LAYER_Z = 5;
 /** the coin rests in a dock for at most this much scroll either side of the dock being centred on screen */
@@ -233,7 +232,7 @@ export function CoinJourney({ delay, reduce }: {
       try {
         const { createEmblemScene } = await import("./emblemScene");
         if (disposed) return;
-        scene = await createEmblemScene(canvas, MODEL_URL);
+        scene = await createEmblemScene(canvas);
       } catch (e) {
         console.warn("3D coin unavailable, keeping the flat logo", e);
         return;

@@ -14,27 +14,77 @@ import { Coverflow } from '../components/Coverflow';
 import { useTheme } from '../theme/ThemeProvider';
 import { FINE_POINTER, useMediaQuery } from '../utils/useMediaQuery';
 import { X_URL } from '../config/social';
-// Open-source mono logos from web3icons (MIT), trimmed to head's markup: the chain, the settlement
-// token and MetaMask stay. Arbitrum, Chainlink, WalletConnect and Rabby were removed as backend detail
+// Open-source mono logos from web3icons (MIT), trimmed to head's markup: the chain and the L1 under it, the
+// settlement token and MetaMask. Arbitrum, Chainlink, WalletConnect and Rabby were removed as backend detail
 // that means little to a first-time visitor.
 import robinhoodSvg from '@web3icons/core/svgs/networks/mono/robinhood.svg.js';
+import ethereumSvg from '@web3icons/core/svgs/networks/mono/ethereum.svg.js';
 import usdcSvg from '@web3icons/core/svgs/tokens/mono/USDC.svg.js';
-// MetaMask has no mono variant in this set; the row draws every logo as one flat colour anyway (GREY_LOGO).
-import metamaskSvg from '@web3icons/core/svgs/wallets/branded/metamask.svg.js';
 
 const svgUrl = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-const STACK_LOGOS = [
-  { label: "Robinhood Chain", svg: robinhoodSvg },
-  { label: "USDC", svg: usdcSvg },
-  { label: "MetaMask", svg: metamaskSvg },
+// All white-on-clear, so --hm-logo-filter turns them to ink in the light theme.
+//   MetaMask: web3icons only has it in colour, and flattened to one silhouette its face disappeared into a blob.
+//   public/logos/metamask-mono.svg is the same fox in one colour with each facet's own share of ink, so it is
+//   `shaded`: it keeps its tones instead of going through the flattening filter.
+//   Pons Family: Robinhood Chain's own token launchpad, live on mainnet since the July 2026 launch (not in
+//   web3icons; their own logo from ponsfamily.com).
+const STACK_LOGOS: { label: string; src: string; shaded?: boolean }[] = [
+  { label: "Robinhood Chain", src: svgUrl(robinhoodSvg) },
+  { label: "Ethereum", src: svgUrl(ethereumSvg) },
+  { label: "USDC", src: svgUrl(usdcSvg) },
+  { label: "MetaMask", src: "/logos/metamask-mono.svg", shaded: true },
+  { label: "Pons Family", src: "/logos/pons.png" },
 ];
-// Pons Family: Robinhood Chain's own token launchpad, real and live on mainnet since Robinhood Chain's
-// July 2026 launch (not in web3icons, so this is their own logo, fetched from ponsfamily.com directly).
-// A PNG, not an SVG string, so it renders through <img src> rather than the svgUrl() data-URI helper.
-const PONS_LOGO = "/logos/pons.png";
-// Every logo in the row in the same grey, MetaMask's orange fox included. A wrapper, not the <img>'s own filter:
-// the images already carry --hm-logo-filter (invert in one theme, `none` in the other), and "grayscale(1) none" is invalid.
-const GREY_LOGO: React.CSSProperties = { display: "block", filter: "var(--hm-logo-mono)", opacity: 0.42 };
+// Every logo in the row in the same grey. A wrapper, not the <img>'s own filter: the images already carry
+// --hm-logo-filter (invert in one theme, `none` in the other), and "grayscale(1) none" is invalid.
+const LOGO_TONE = 0.42;
+const GREY_LOGO: React.CSSProperties = { display: "block", filter: "var(--hm-logo-mono)", opacity: LOGO_TONE };
+const SHADED_LOGO: React.CSSProperties = { display: "block", opacity: LOGO_TONE };
+
+/* Line icons for the "why onchain" cards, from Lucide (ISC licence): coins, search-check, chart-candlestick and
+   wallet, drawn at a finer stroke than Lucide's default to sit with the serif headings. */
+const WHY_ICONS = {
+  coins: (
+    <>
+      <path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" />
+      <path d="M15 6h1v4" />
+      <path d="m6.134 14.768.866-.5 2 3.464" />
+      <circle cx="16" cy="8" r="6" />
+    </>
+  ),
+  verify: (
+    <>
+      <path d="m8 11 2 2 4-4" />
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </>
+  ),
+  candles: (
+    <>
+      <path d="M9 5v4" />
+      <rect width="4" height="6" x="7" y="9" rx="1" />
+      <path d="M9 15v2" />
+      <path d="M17 3v2" />
+      <rect width="4" height="8" x="15" y="5" rx="1" />
+      <path d="M17 13v3" />
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+    </>
+  ),
+  wallet: (
+    <>
+      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+    </>
+  ),
+};
+type WhyIcon = keyof typeof WHY_ICONS;
+function LineIcon({ name, size = 24 }: { name: WhyIcon; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {WHY_ICONS[name]}
+    </svg>
+  );
+}
 
 /* =============================================================================
    HANMARKET landing page. Ink-wash on rice paper, Han red accents.
@@ -823,7 +873,7 @@ export default function HanPerpLanding() {
           call): the names stay as each logo's accessible name and hover title. HanMarket's own mark leads the row. */}
       <section style={{ padding: "20px 0 36px" }} aria-label="Built with">
         {/* Every logo as a flat silhouette: colour to black, and alpha pushed to solid, so a logo drawn with shading or
-            see-through layers (the Pons P, MetaMask's fox) comes out as one even shape like the rest. */}
+            see-through layers (the Pons P) comes out as one even shape like the rest. */}
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
           <filter id="hm-logo-mono" colorInterpolationFilters="sRGB">
             <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
@@ -844,14 +894,10 @@ export default function HanPerpLanding() {
               label: "HanMarket",
               node: <span style={GREY_LOGO}><LogoMark size={36} /></span>,
             },
-            ...STACK_LOGOS.map(({ label, svg }) => ({
+            ...STACK_LOGOS.map(({ label, src, shaded }) => ({
               label,
-              node: <span style={GREY_LOGO}><img src={svgUrl(svg)} alt="" width={36} height={36} style={{ display: "block", filter: "var(--hm-logo-filter)" }} /></span>,
+              node: <span style={shaded ? SHADED_LOGO : GREY_LOGO}><img src={src} alt="" width={36} height={36} style={{ display: "block", filter: "var(--hm-logo-filter)" }} /></span>,
             })),
-            {
-              label: "Pons Family",
-              node: <span style={GREY_LOGO}><img src={PONS_LOGO} alt="" width={36} height={36} style={{ display: "block", filter: "var(--hm-logo-filter)" }} /></span>,
-            },
           ]}
         />
         </Reveal>
@@ -897,12 +943,12 @@ export default function HanPerpLanding() {
       {/* WHY ONCHAIN */}
       <section id="why" className="lp-section" style={{ padding: "20px 20px 100px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
-          {[
-            ["Low fees", "Cents of gas on an Ethereum L2, and a small fee on premiums only."],
-            ["Transparent", "Collateral, trades and settlement all live onchain and are verifiable on Robinhood Chain."],
-            ["Real HK & China equities", "Calls and puts on Tencent, Alibaba, Xiaomi, BYD and more."],
-            ["Self-custodied", "Your wallet holds your collateral. HanMarket never takes custody of user funds."],
-          ].map(([t, d], i) => (
+          {([
+            ["coins", "Low fees", "Cents of gas on an Ethereum L2, and a small fee on premiums only."],
+            ["verify", "Transparent", "Collateral, trades and settlement all live onchain and are verifiable on Robinhood Chain."],
+            ["candles", "Real HK & China equities", "Calls and puts on Tencent, Alibaba, Xiaomi, BYD and more."],
+            ["wallet", "Self-custodied", "Your wallet holds your collateral. HanMarket never takes custody of user funds."],
+          ] as [WhyIcon, string, string][]).map(([icon, t, d], i) => (
             <motion.div
               key={t}
               initial={{ opacity: 0, y: 40 }}
@@ -914,9 +960,9 @@ export default function HanPerpLanding() {
               <BorderGlow borderRadius={22} backgroundColor={CARD} glowRadius={180} colors={[GOLD]} style={{ padding: "30px 24px", textAlign: "left", height: "100%" }}>
                 <span style={{
                   width: 52, height: 52, borderRadius: "50%", display: "grid", placeItems: "center",
-                  background: "var(--hm-chip)", border: "1px solid rgba(var(--hm-gold-c), 0.28)",
+                  background: "var(--hm-chip)", border: "1px solid rgba(var(--hm-gold-c), 0.28)", color: "var(--hm-gold)",
                 }}>
-                  <LogoMark size={30} />
+                  <LineIcon name={icon} />
                 </span>
                 <h3 style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, margin: "16px 0 8px" }}>{t}</h3>
                 <p style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.55, color: MUTED, margin: 0 }}>{d}</p>

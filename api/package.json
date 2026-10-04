@@ -12,7 +12,8 @@
     "deploy:safe": "ts-node scripts/deploy-safe.ts",
     "sync:protocol": "node scripts/sync-protocol.js",
     "typecheck": "tsc --noEmit -p .",
-    "showcase": "ts-node scripts/showcase.ts"
+    "showcase": "ts-node scripts/showcase.ts",
+    "health": "ts-node scripts/health.ts"
   },
   "keywords": [],
   "author": "",

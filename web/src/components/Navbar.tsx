@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useNetwork } from '../contexts/NetworkContext';
 import { ThemeToggle } from '../theme/ThemeProvider';
 import { X_URL } from '../config/social';
+import { ChinaClock, MusicToggle } from './ChinaClock';
 import './Navbar.css';
 
 interface NavbarProps {
@@ -86,6 +87,8 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
         </div>
       )}
       <div className="navbar-actions">
+        {!isTerminal && <ChinaClock />}
+        {!isTerminal && <MusicToggle />}
         <ThemeToggle />
         {isTerminal && (
           <div className="net-toggle" style={{
@@ -188,6 +191,10 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
           <Link to="/#markets" onClick={() => setIsMobileMenuOpen(false)}>Markets</Link>
           <Link to="/#faq" onClick={() => setIsMobileMenuOpen(false)}>FAQ</Link>
           <Link to="/docs" onClick={() => setIsMobileMenuOpen(false)}>Docs</Link>
+          <div className="mobile-menu-extras">
+            <ChinaClock variant="menu" />
+            <MusicToggle variant="menu" />
+          </div>
           <Link to="/terminal" className="mobile-menu-launch" onClick={() => setIsMobileMenuOpen(false)}>Launch App →</Link>
         </div>
       </div>

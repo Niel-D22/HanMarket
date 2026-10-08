@@ -81,7 +81,10 @@ contract Rehearsal is Script {
         token.approve(address(vault), type(uint256).max);
         vault.deposit(150 * ONE);
         uint64 deadline = uint64(block.timestamp + 10 minutes);
-        perps.increasePosition(BABA_PERP, true, 100 * ONE, 200 * ONE, type(uint256).max, deadline); // 2x long
+        // a 2x long, as large as the launch's own PERP_MAX_POSITION allows (up to $200), so the caps are tested too
+        uint256 size = vm.envOr("PERP_MAX_POSITION", uint256(200));
+        if (size > 200) size = 200;
+        perps.increasePosition(BABA_PERP, true, (size / 2) * ONE, size * ONE, type(uint256).max, deadline);
         PerpsEngine.PositionInfo memory info = perps.positionInfo(trader, BABA_PERP, true);
         require(info.liquidationPrice > 0 && info.liquidationPrice < info.markPrice, "liquidation price");
         perps.closePosition(BABA_PERP, true, 0, deadline);

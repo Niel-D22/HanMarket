@@ -9,7 +9,7 @@
 // on nearly every EVM chain because they are deployed through a deterministic factory.
 import 'dotenv/config';
 import { encodeFunctionData, decodeEventLog, getAddress, isAddress, type Address } from 'viem';
-import { accountFromEnv, publicClientFor, walletClientFor, type NetworkKey } from '../src/chain';
+import { networkAccount, publicClientFor, walletClientFor, type NetworkKey } from '../src/chain';
 
 const SAFE_L2_SINGLETON: Address = '0x29fcB43b46531BcA003ddC8FCB67FFE91900C762';
 const SAFE_PROXY_FACTORY: Address = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67';
@@ -48,7 +48,8 @@ async function main() {
   const threshold = Number(arg('threshold') ?? '2');
   const dryRun = process.argv.includes('--dry-run');
   if (!ownersArg) throw new Error('--owners 0xA,0xB,0xC is required');
-  const owners = ownersArg.split(',').map((s) => s.trim());
+  // commas or spaces: PowerShell turns an unquoted `0xA,0xB` into the single argument "0xA 0xB"
+  const owners = ownersArg.split(/[\s,]+/).filter(Boolean);
   for (const o of owners) if (!isAddress(o)) throw new Error(`not an address: ${o}`);
   if (threshold < 1 || threshold > owners.length) throw new Error(`threshold must be between 1 and ${owners.length}`);
 
@@ -74,8 +75,12 @@ async function main() {
     return;
   }
 
-  const deployer = accountFromEnv('KEEPER_PRIVATE_KEY') ?? accountFromEnv('OWNER_PRIVATE_KEY');
-  if (!deployer) throw new Error('KEEPER_PRIVATE_KEY or OWNER_PRIVATE_KEY must be set to pay the deploy gas (it is not an owner of the Safe unless you also listed it in --owners)');
+  // the network's own key pays: on mainnet MAINNET_KEEPER_PRIVATE_KEY, never the testnet operator's (see networkAccount)
+  const deployer = networkAccount('KEEPER_PRIVATE_KEY', network) ?? networkAccount('OWNER_PRIVATE_KEY', network);
+  if (!deployer) {
+    const prefix = network === 'mainnet' ? 'MAINNET_' : '';
+    throw new Error(`${prefix}KEEPER_PRIVATE_KEY or ${prefix}OWNER_PRIVATE_KEY must be set to pay the deploy gas (it is not an owner of the Safe unless you also listed it in --owners)`);
+  }
   const wallet = walletClientFor(network, deployer);
 
   const hash = await wallet.writeContract({

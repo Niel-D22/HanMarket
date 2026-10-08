@@ -7,6 +7,7 @@ import type { NetworkKey } from '../contexts/NetworkContext';
 import type { PerpMarket } from './protocol';
 import { fmtCompact, fmtPrice } from './protocol';
 import { ThemeToggle } from '../theme/ThemeProvider';
+import { ChinaClock, MusicToggle } from '../components/ChinaClock';
 import {
   IconActivity, IconDocs, IconKeyboard, IconMarkets, IconMenu, IconPanelLeft, IconPanelRight, IconPortfolio, IconSearch, IconStrategy, IconTrade,
   IconVault, IconWallet, IconX,
@@ -101,6 +102,8 @@ export function TopBar({ network, setNetwork, onSelect, onMenu, panels, onPanel,
         >
           <IconPanelRight />
         </button>
+        <ChinaClock variant="terminal" className="tm-desk-only" />
+        <MusicToggle variant="terminal" className="tm-desk-only" />
         <ThemeToggle className="theme-toggle tm-theme" />
         <div className="tm-net" role="group" aria-label="Network">
           {(['mainnet', 'testnet'] as const).map((n) => (

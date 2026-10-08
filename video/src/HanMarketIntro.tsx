@@ -147,7 +147,7 @@ function Title({ f, fps }: { f: number; fps: number }) {
       </div>
       <div style={{ width: 110 * rule, height: 3, background: RED, marginTop: 30 }} />
       <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 54, color: INK, marginTop: 26, opacity: tag, transform: `translateY(${(1 - tag) * 18}px)` }}>
-        Trade China. Beyond Borders.
+        Trade China. Without Borders.
       </div>
       <div style={{ fontFamily: SANS, fontWeight: 500, fontSize: 19, letterSpacing: "0.42em", marginRight: "-0.42em", color: STONE, marginTop: 18, opacity: sub }}>
         CHINA EQUITIES · ONCHAIN

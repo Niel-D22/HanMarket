@@ -92,10 +92,13 @@ app.listen(PORT, () => {
     // week of cover. The gas floor keeps a long run from starving the jobs above, which matter more.
     const marketsCron = process.env.MARKETS_CRON || '0 2 * * 1';
     const gasFloor = parseEther(process.env.MARKETS_GAS_FLOOR_ETH || '0.0001');
+    // A small mainnet launch can list fewer stocks (MAINNET_MARKETS_SYMBOLS=BABA): each chain of series costs gas
+    const mainnetOnly = process.env.MAINNET_MARKETS_SYMBOLS?.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
     cron.schedule(marketsCron, () => {
       for (const network of ['testnet', 'mainnet'] as const) {
         if (!NETWORKS[network].deployment) continue;
-        createMarkets({ network, weeks: 2, gasFloorWei: gasFloor })
+        const only = network === 'mainnet' && mainnetOnly?.length ? mainnetOnly : undefined;
+        createMarkets({ network, weeks: 2, gasFloorWei: gasFloor, only })
           .then((r) => logger.info(`[markets:${network}] ${r.created} created, ${r.existed} already open${r.stoppedForGas ? ' (stopped at the gas floor)' : ''}`))
           .catch(fail(`markets:${network}`));
       }

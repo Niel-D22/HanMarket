@@ -42,6 +42,23 @@ export function strikeStep(spot: number): number {
 
 const usd6 = (n: number) => BigInt(Math.round(n * 1e6));
 
+/**
+ * Sends a transaction again when it loses the race for a nonce. On testnet the Railway keeper and a local
+ * `markets:create` share one key, so while the keeper is busy a local send can be refused as "nonce too low";
+ * each retry fetches the account's current nonce afresh.
+ */
+async function sendWithRetry(send: () => Promise<`0x${string}`>, tries = 6): Promise<`0x${string}`> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await send();
+    } catch (e) {
+      const message = String((e as Error).message ?? e).toLowerCase();
+      if (attempt >= tries || !(message.includes('nonce') || message.includes('underpriced'))) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    }
+  }
+}
+
 export interface CreateMarketsOptions {
   network: NetworkKey;
   /** how many upcoming Fridays to open, 1–8 */
@@ -134,7 +151,7 @@ export async function createMarkets(opts: CreateMarketsOptions): Promise<CreateM
             account: keeper as PrivateKeyAccount, address: d.optionsEngine, abi: optionsAbi, functionName: 'createSeries',
             args: [reg.id, isCall, strike, cap, expiry, settleWindow, oracleGrace],
           });
-          const hash = await wallet.writeContract(request);
+          const hash = await sendWithRetry(() => wallet.writeContract(request));
           await client.waitForTransactionReceipt({ hash });
           out.created++;
           log(`created ${label}`);

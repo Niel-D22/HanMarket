@@ -135,11 +135,11 @@
   padding: 0 0.25rem;
 }
 
-/* Mobile Responsiveness. 768px used to be the cutoff, but the desktop grid's clamp(20px, 8vw, 150px) side
-   padding plus the wordmark, four nav links, theme toggle and Launch App button don't actually fit in the
-   768–900px band: Launch App ran off the right edge at 820px. Raised so that whole band gets the simpler
-   two-column (logo + hamburger) layout instead of a cramped desktop one. */
-@media (max-width: 900px) {
+/* Mobile Responsiveness. 768px used to be the cutoff, then 900px: the desktop grid's clamp(20px, 8vw, 150px) side
+   padding plus the wordmark, four nav links, theme toggle and Launch App button don't fit below that. With the
+   Beijing clock and the music player in the bar as well, Launch App ran off the right edge up to 1100px (measured),
+   so that whole band gets the simpler two-column (logo + hamburger) layout instead of a cramped desktop one. */
+@media (max-width: 1100px) {
   .navbar-container {
     padding: 0.5rem 1rem;
   }
@@ -237,6 +237,15 @@
 
 .mobile-menu-content a:last-child {
   border-bottom: none;
+}
+
+/* the Beijing clock and the full music player (track title and "next" included), which the bar hides at this size */
+.mobile-menu-extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 0.25rem 0.4rem;
 }
 
 .mobile-menu-content a.mobile-menu-launch {

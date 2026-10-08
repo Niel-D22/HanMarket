@@ -1,7 +1,7 @@
 import {
-  ACESFilmicToneMapping, BackSide, BoxGeometry, CanvasTexture, Color, DoubleSide, ExtrudeGeometry, Group, Mesh,
-  MeshBasicMaterial, MeshPhysicalMaterial, Path, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight,
-  RepeatWrapping, SRGBColorSpace, Scene, Shape, WebGLRenderer,
+  ACESFilmicToneMapping, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, DoubleSide,
+  ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, Path, PerspectiveCamera, PlaneGeometry,
+  PMREMGenerator, PointLight, RepeatWrapping, SRGBColorSpace, Scene, Shape, WebGLRenderer,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CANVAS_SCALE } from "./constants";
@@ -10,8 +10,12 @@ import { CANVAS_SCALE } from "./constants";
    weighs on the landing page's first paint. The component decides the pose every frame; this only draws it.
 
    The coin is built here, not loaded: the mark is plain geometry (a ring cut into four hooked quarters around a
-   square), so it is extruded from its own measurements with a flat chamfer on every edge. That keeps the edges
-   exact at any size, gives the chamfers a clean line of light to catch, and needs no model download. */
+   square), so it is extruded from its own measurements with a rounded chamfer on every edge. That keeps the edges
+   exact at any size and needs no model download.
+
+   It is finished in two ways, to match the logo on HanMarket's X profile: the faces a fine cast grain (a soft sparkle,
+   not a mirror), the walls and chamfers smoother, so the edges carry the light. The colour and exposure were tuned
+   until the rendered face's spread of golds matched that logo's. */
 
 /** One frame's pose, chosen by CoinJourney. */
 export interface EmblemPose {
@@ -45,8 +49,9 @@ const HOOK = 0.144; // width of each hook
 const HOOK_REACH = 0.57; // how far toward the centre a hook reaches
 const SQUARE_OUT = 0.48;
 const SQUARE_IN = 0.31;
-const THICKNESS = 0.1;
-const CHAMFER = 0.035;
+const GOLD = 0xffcc55;
+const THICKNESS = 0.15;
+const CHAMFER = 0.05;
 
 /** The top-left quarter: an arc of the ring with a hook at each end, one down toward the centre, one across. */
 function quarter(): Shape {
@@ -82,35 +87,57 @@ function square(): Shape {
   return s;
 }
 
-function coinGeometry() {
-  const options = { depth: THICKNESS, bevelEnabled: true, bevelThickness: CHAMFER, bevelSize: CHAMFER, bevelSegments: 1, curveSegments: 96 };
+/** ExtrudeGeometry keeps its caps (group 0) apart from its walls and chamfers (group 1): split them into two geometries. */
+function splitCapsAndWalls(source: BufferGeometry): [BufferGeometry, BufferGeometry] {
+  const out: [BufferGeometry, BufferGeometry] = [new BufferGeometry(), new BufferGeometry()];
+  for (const name of ["position", "normal", "uv"]) {
+    const attr = source.getAttribute(name);
+    const slices: Float32Array[][] = [[], []];
+    for (const g of source.groups) {
+      slices[g.materialIndex ?? 0].push((attr.array as Float32Array).slice(g.start * attr.itemSize, (g.start + g.count) * attr.itemSize));
+    }
+    slices.forEach((parts, i) => {
+      const joined = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+      parts.reduce((offset, p) => (joined.set(p, offset), offset + p.length), 0);
+      out[i].setAttribute(name, new BufferAttribute(joined, attr.itemSize));
+    });
+  }
+  return out;
+}
+
+/** The coin as two geometries: its faces (grained) and its walls with their chamfers (smoother). */
+function coinGeometry(): [BufferGeometry, BufferGeometry] {
+  const options = { depth: THICKNESS, bevelEnabled: true, bevelThickness: CHAMFER, bevelSize: CHAMFER, bevelSegments: 3, curveSegments: 96 };
   const q = new ExtrudeGeometry(quarter(), options);
   // the mark has quarter-turn symmetry: the other three quarters are the first one turned
   const parts = [0, 1, 2, 3].map((k) => q.clone().rotateZ((-k * Math.PI) / 2));
   parts.push(new ExtrudeGeometry(square(), options));
-  const geometry = mergeGeometries(parts);
-  [q, ...parts].forEach((g) => g.dispose());
-  geometry.translate(0, 0, -THICKNESS / 2);
+  const split = parts.map(splitCapsAndWalls);
   const toWorld = COIN_DIAMETER / 2 / (RING_OUT + CHAMFER); // the chamfer adds to the outline, so it counts in the size
-  geometry.scale(toWorld, toWorld, toWorld);
-  return geometry;
+  const result = [0, 1].map((i) => {
+    const merged = mergeGeometries(split.map((s) => s[i]));
+    merged.translate(0, 0, -THICKNESS / 2);
+    merged.scale(toWorld, toWorld, toWorld);
+    return merged;
+  }) as [BufferGeometry, BufferGeometry];
+  [q, ...parts, ...split.flat()].forEach((g) => g.dispose());
+  return result;
 }
 
-/** A fine noise for the surface, like cast gold: used as a bump map, so the faces are not perfectly flat. */
-function grainTexture(size = 512) {
+/** Cast gold: a fine noise, used as the faces' bump map, so the faces sparkle softly instead of mirroring the studio. */
+function grainTexture(size = 1024) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d")!;
   const image = ctx.createImageData(size, size);
   for (let i = 0; i < image.data.length; i += 4) {
-    const v = 128 + (Math.random() - 0.5) * 70;
-    image.data[i] = image.data[i + 1] = image.data[i + 2] = v;
+    image.data[i] = image.data[i + 1] = image.data[i + 2] = 128 + (Math.random() - 0.5) * 70;
     image.data[i + 3] = 255;
   }
   ctx.putImageData(image, 0, 0);
   const texture = new CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = RepeatWrapping;
-  texture.repeat.set(3, 3);
+  texture.repeat.set(4, 4);
   return texture;
 }
 
@@ -146,7 +173,7 @@ export async function createEmblemScene(canvas: HTMLCanvasElement): Promise<Embl
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.9;
+  renderer.toneMappingExposure = 0.88;
 
   const scene = new Scene();
   const pmrem = new PMREMGenerator(renderer);
@@ -163,12 +190,13 @@ export async function createEmblemScene(canvas: HTMLCanvasElement): Promise<Embl
   scene.add(glint);
 
   const grain = grainTexture();
-  const material = new MeshPhysicalMaterial({
-    color: 0xffcf5c, metalness: 1, roughness: 0.25, bumpMap: grain, bumpScale: 0.6,
-  });
-  const geometry = coinGeometry();
+  // rough enough that the faces average the studio rather than mirror one softbox: the gold then holds its colour as
+  // the coin rocks and turns, instead of flashing pale whenever a face swings toward a light
+  const faceMaterial = new MeshPhysicalMaterial({ color: GOLD, metalness: 1, roughness: 0.5, bumpMap: grain, bumpScale: 0.35 });
+  const wallMaterial = new MeshPhysicalMaterial({ color: GOLD, metalness: 1, roughness: 0.25 });
+  const [faces, walls] = coinGeometry();
   const pivot = new Group();
-  pivot.add(new Mesh(geometry, material));
+  pivot.add(new Mesh(faces, faceMaterial), new Mesh(walls, wallMaterial));
   scene.add(pivot);
 
   return {
@@ -187,8 +215,10 @@ export async function createEmblemScene(canvas: HTMLCanvasElement): Promise<Embl
       camera.updateProjectionMatrix();
     },
     dispose() {
-      geometry.dispose();
-      material.dispose();
+      faces.dispose();
+      walls.dispose();
+      faceMaterial.dispose();
+      wallMaterial.dispose();
       grain.dispose();
       envMap.dispose();
       studio.traverse((o) => {

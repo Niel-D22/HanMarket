@@ -1,0 +1,203 @@
+/* Beijing clock and music switch (ChinaClock.tsx). The landing variant is a hairline pill that sits on the hero
+   art; the terminal variant matches the terminal's square icon buttons. */
+
+.cn-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 34px;
+  padding: 0 0.85rem 0 0.75rem;
+  white-space: nowrap;
+  user-select: none;
+}
+.cn-time {
+  font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--hm-text);
+}
+.cn-city {
+  font-family: 'Montserrat', 'Inter Tight', sans-serif;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  color: rgba(var(--hm-ink-c), 0.55);
+}
+
+/* the dot: a cinnabar seal while Hong Kong trades, an empty ring while it is closed */
+.cn-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--hm-ink-c), 0.4);
+  flex-shrink: 0;
+}
+.cn-dot.is-open {
+  border-color: var(--hm-red);
+  background: var(--hm-red);
+}
+.cn-dot.is-open::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--hm-red-c), 0.5);
+  animation: cn-ring 2.4s ease-out infinite;
+}
+@keyframes cn-ring {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- the music player
+   Idle it is a single round switch; playing, it opens up to the track's numeral (壹 贰 叁), its title and "next". */
+.cn-player {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.cn-music,
+.cn-next {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: rgba(var(--hm-ink-c), 0.7);
+  transition: color 0.2s ease;
+}
+.cn-music { width: 32px; height: 32px; border-radius: inherit; }
+.cn-next { width: 28px; height: 28px; margin-right: 3px; border-radius: 50%; }
+.cn-music:hover,
+.cn-next:hover,
+.cn-player.is-on .cn-music { color: var(--hm-gold); }
+.cn-music:focus-visible,
+.cn-next:focus-visible,
+.cn-clock:focus-visible { outline: 2px solid var(--hm-gold); outline-offset: 2px; }
+
+.cn-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.3rem 0 0.1rem;
+  animation: cn-open 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cn-next { animation: cn-open 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+.cn-track b {
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--hm-red);
+}
+.cn-track-title {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Montserrat', 'Inter Tight', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--hm-ink-c), 0.7);
+}
+@keyframes cn-open {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* playing: three bars rising and falling out of step */
+.cn-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 13px;
+}
+.cn-bars i {
+  width: 2.5px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: cn-bar 1.1s ease-in-out infinite;
+}
+.cn-bars i:nth-child(2) { animation-delay: -0.45s; animation-duration: 0.9s; }
+.cn-bars i:nth-child(3) { animation-delay: -0.2s; animation-duration: 1.3s; }
+@keyframes cn-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cn-dot.is-open::after,
+  .cn-bars i,
+  .cn-track,
+  .cn-next { animation: none; }
+  .cn-bars i:nth-child(2) { transform: scaleY(0.7); }
+  .cn-bars i:nth-child(3) { transform: scaleY(0.45); }
+}
+
+/* ---------------------------------------------------------------- landing and phone menu: hairline pills */
+.cn-landing.cn-clock,
+.cn-landing.cn-player,
+.cn-menu.cn-clock,
+.cn-menu.cn-player {
+  border: 1px solid rgba(var(--hm-line-c), 0.14);
+  border-radius: 999px;
+  background: rgba(var(--hm-bg-c), 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.cn-landing.cn-player:hover,
+.cn-landing.cn-player.is-on,
+.cn-menu.cn-player.is-on { border-color: rgba(var(--hm-gold-c), 0.55); }
+
+/* ---------------------------------------------------------------- terminal: same as its icon buttons */
+.cn-terminal.cn-clock,
+.cn-terminal.cn-player {
+  border: 1px solid var(--line-2, rgba(var(--hm-line-c), 0.12));
+  border-radius: 8px;
+  background: var(--panel-2, var(--hm-card));
+}
+.cn-terminal.cn-player.is-on { border-color: var(--gold, var(--hm-gold)); }
+/* the terminal's top bar is full: the numeral names the track there, and the tooltip gives the rest */
+.cn-terminal .cn-track-title { display: none; }
+
+/* What fits in the landing bar beside the links, theme switch, X and Launch App, by width (measured with the player
+   open). Below 1100px the bar switches to logo + menu (Navbar.css), and the menu carries the full player. */
+@media (max-width: 1599px) {
+  .cn-landing .cn-track-title { display: none; }
+}
+@media (max-width: 1439px) {
+  .cn-landing .cn-city { display: none; }
+  .cn-landing.cn-clock { padding: 0 0.7rem; }
+}
+@media (min-width: 1101px) and (max-width: 1279px) {
+  .cn-landing.cn-clock,
+  .cn-landing .cn-track,
+  .cn-landing .cn-next { display: none; }
+}
+@media (max-width: 900px) {
+  .cn-landing .cn-track,
+  .cn-landing .cn-next { display: none; }
+}
+@media (max-width: 760px) {
+  .cn-landing.cn-clock { display: none; }
+}
+/* the smallest phones: the bar is wordmark, theme, X and menu; the player is in the menu */
+@media (max-width: 400px) {
+  .cn-landing.cn-player { display: none; }
+}
+
+/* the terminal hides these with .tm-desk-only below 1000px; restated here because this file can load after
+   terminal.css, and its own display rules would otherwise win */
+@media (max-width: 1000px) {
+  .cn-terminal.tm-desk-only { display: none; }
+}

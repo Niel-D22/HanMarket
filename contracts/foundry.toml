@@ -22,3 +22,7 @@ runs = 1000
 [rpc_endpoints]
 robinhood_testnet = "${ROBINHOOD_TESTNET_RPC}"
 robinhood = "${ROBINHOOD_MAINNET_RPC}"
+
+# style lints stay available through `forge lint`; off during builds so the deploy output stays readable
+[lint]
+lint_on_build = false

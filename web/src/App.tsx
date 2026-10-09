@@ -6,17 +6,21 @@ import { Docs } from './pages/Docs';
 import { Terms } from './pages/Terms';
 import { Privacy } from './pages/Privacy';
 import { NotFound } from './pages/NotFound';
+import { useT } from './i18n';
 import './index.css';
 
 import Landing from './pages/Landing';
 
 const TerminalApp = lazy(() => import('./pages/TerminalApp'));
 
-const TerminalLoading = () => (
-  <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#F6F2EB', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.3em', fontSize: 12, color: 'rgba(40,33,28,0.55)' }}>
-    LOADING TERMINAL
-  </div>
-);
+const TerminalLoading = () => {
+  const t = useT();
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#F6F2EB', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.3em', fontSize: 12, color: 'rgba(40,33,28,0.55)' }}>
+      {t('tm.chart.loadingTerminal')}
+    </div>
+  );
+};
 
 function App() {
   const { pathname } = useLocation();

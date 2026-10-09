@@ -13,6 +13,7 @@ import {
 } from 'lightweight-charts';
 import { useNetwork } from '../contexts/NetworkContext';
 import { findAsset } from '../data/assets';
+import { useI18n, useT, type Lang } from '../i18n';
 
 // Candlestick chart for HK listings and China ADRs. TradingView's embeddable widget refuses HKEX symbols,
 // so the default draws the candles itself with lightweight-charts (TradingView's open-source charting
@@ -28,6 +29,10 @@ const TIMEFRAMES = [
   { id: '1w', label: '1W' },
 ] as const;
 type Timeframe = (typeof TIMEFRAMES)[number]['id'];
+/** TradingView's own names for the site's languages */
+const TV_LOCALE: Record<Lang, string> = {
+  en: 'en', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', ja: 'ja', ko: 'kr', vi: 'vi_VN', th: 'th_TH', es: 'es', pt: 'br', ru: 'ru', tr: 'tr',
+};
 /** daily and weekly candles carry a date, not a time of day */
 const isIntraday = (tf: Timeframe) => tf !== '1d' && tf !== '1w';
 
@@ -88,10 +93,11 @@ function readEngine(): Engine {
 }
 
 function EngineToggle({ engine, onChange }: { engine: Engine; onChange: (e: Engine) => void }) {
+  const t = useT();
   return (
-    <div className="tm-engine" role="group" aria-label="Chart source">
+    <div className="tm-engine" role="group" aria-label={t('tm.chart.source')}>
       <button type="button" aria-pressed={engine === 'native'} onClick={() => onChange('native')}>HanMarket</button>
-      <button type="button" aria-pressed={engine === 'tradingview'} onClick={() => onChange('tradingview')} title="TradingView's own chart, with its full drawing tools. It draws green up and red down.">TradingView</button>
+      <button type="button" aria-pressed={engine === 'tradingview'} onClick={() => onChange('tradingview')} title={t('tm.chart.tvTitle')}>TradingView</button>
     </div>
   );
 }
@@ -99,6 +105,7 @@ function EngineToggle({ engine, onChange }: { engine: Engine; onChange: (e: Engi
 // ---------------------------------------------------------------- TradingView
 
 function TradingViewChart({ tvSymbol, dark, toggle }: { tvSymbol: string; dark: boolean; toggle: ReactNode }) {
+  const { lang } = useI18n();
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const host = hostRef.current;
@@ -119,7 +126,7 @@ function TradingViewChart({ tvSymbol, dark, toggle }: { tvSymbol: string; dark: 
       timezone: 'exchange',
       theme: dark ? 'dark' : 'light',
       style: '1',
-      locale: 'en',
+      locale: TV_LOCALE[lang],
       allow_symbol_change: false,
       hide_side_toolbar: false,
       withdateranges: true,
@@ -128,7 +135,7 @@ function TradingViewChart({ tvSymbol, dark, toggle }: { tvSymbol: string; dark: 
     });
     host.appendChild(script);
     return () => { host.innerHTML = ''; };
-  }, [tvSymbol, dark]);
+  }, [tvSymbol, dark, lang]);
 
   return (
     <div className="tm-chart-col">
@@ -147,6 +154,7 @@ function TradingViewChart({ tvSymbol, dark, toggle }: { tvSymbol: string; dark: 
 
 function NativeChart({ symbol, dark, toggle }: { symbol: string; dark: boolean; toggle: ReactNode }) {
   const { up: UP, down: DOWN, ink: INK, muted: MUTED, line: LINE, cross: CROSS, label: LABEL } = dark ? DARK : LIGHT;
+  const t = useT();
   const { apiUrl } = useNetwork();
   const asset = findAsset(symbol);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -255,24 +263,24 @@ function NativeChart({ symbol, dark, toggle }: { symbol: string; dark: boolean; 
   return (
     <div className="tm-chart-col">
       <div className="tm-chart-bar">
-        <div role="group" aria-label="Chart timeframe" style={{ display: 'flex', gap: '2px' }}>
-          {TIMEFRAMES.map((t) => (
-            <button key={t.id} type="button" aria-pressed={tf === t.id} onClick={() => setTf(t.id)} className="t-range">
-              {t.label}
+        <div role="group" aria-label={t('tm.chart.timeframe')} style={{ display: 'flex', gap: '2px' }}>
+          {TIMEFRAMES.map((f) => (
+            <button key={f.id} type="button" aria-pressed={tf === f.id} onClick={() => setTf(f.id)} className="t-range">
+              {f.label}
             </button>
           ))}
         </div>
         <div className="tm-chart-bar-r">
-          <div className="tm-engine" role="group" aria-label="Chart style">
-            <button type="button" aria-pressed={style === 'line'} onClick={() => chooseStyle('line')}>Line</button>
-            <button type="button" aria-pressed={style === 'candles'} onClick={() => chooseStyle('candles')}>Candles</button>
+          <div className="tm-engine" role="group" aria-label={t('tm.chart.style')}>
+            <button type="button" aria-pressed={style === 'line'} onClick={() => chooseStyle('line')}>{t('tm.chart.line')}</button>
+            <button type="button" aria-pressed={style === 'candles'} onClick={() => chooseStyle('candles')}>{t('tm.chart.candles')}</button>
           </div>
-          <button type="button" className="t-reset" title="Fit the whole range back on screen" onClick={() => chartRef.current?.timeScale().fitContent()}>Reset view</button>
+          <button type="button" className="t-reset" title={t('tm.chart.resetTitle')} onClick={() => chartRef.current?.timeScale().fitContent()}>{t('tm.chart.reset')}</button>
           <span className="tm-chart-note">
             {asset ? `${asset.currency} · ${asset.board === 'HK' ? 'HKT' : 'ET'}` : ''}
-            {status === 'loading' && ' · loading…'}
-            {status === 'error' && ' · price history unavailable'}
-            {status === 'empty' && ' · no trades in this range'}
+            {status === 'loading' && t('tm.chart.loading')}
+            {status === 'error' && t('tm.chart.error')}
+            {status === 'empty' && t('tm.chart.empty')}
           </span>
           {toggle}
         </div>
@@ -280,7 +288,7 @@ function NativeChart({ symbol, dark, toggle }: { symbol: string; dark: boolean; 
       <div className="tm-chart-body">
         <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
         {legend && status === 'ready' && (
-          <div className="tm-ohlc" aria-label="Candle under the pointer">
+          <div className="tm-ohlc" aria-label={t('tm.chart.legend')}>
             <span className="dim">{stamp(legend.time, isIntraday(tf))}</span>
             <span><i>O</i> <b className={tone}>{price(legend.o)}</b></span>
             <span><i>H</i> <b className={tone}>{price(legend.h)}</b></span>

@@ -4,12 +4,13 @@ import { ASSETS } from '../data/assets';
 import type { Quote } from '../hooks/usePrices';
 import { vaultAbi, erc20Abi } from '../../api/_lib/protocol/abis';
 import {
-  fmtCompact, fmtPrice, fmtUsd, priceSource, toUsd6, tone, useCollateralSymbol, useProtocol, useVaultStats,
+  SOURCE_KEY, fmtCompact, fmtPrice, fmtUsd, priceSource, toUsd6, tone, useCollateralSymbol, useProtocol, useVaultStats,
   type AccountState, type HistoryRow, type OptionHolding, type PerpPosition, type ProtocolState, type Step, type TxState, type useTx,
 } from './protocol';
 import type { Product } from './Chrome';
 import { HistoryTable, OptionPositionsTable, PerpPositionsTable } from './TradeView';
 import { useVolumes } from './flowData';
+import { useI18n, useT, type MsgKey } from '../i18n';
 
 type Tx = ReturnType<typeof useTx>;
 const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0);
@@ -21,21 +22,22 @@ export function MarketsView({ quotes, state, onTrade }: {
   state?: ProtocolState;
   onTrade: (symbol: string, product: Product) => void;
 }) {
+  const t = useT();
   const { network } = useProtocol();
   const perpFor = (symbol: string) => state?.perps.find((p) => p.assetSymbol === symbol);
   const { data: volumes } = useVolumes(state);
   return (
     <div className="tm-view">
       <div>
-        <h1>Markets</h1>
-        <p>Options on {ASSETS.length} Hong Kong listings and China ADRs, perpetuals on {state?.perps.length ?? 0} of them. Volume is everything traded since this network's launch.</p>
+        <h1>{t('tm.view.markets')}</h1>
+        <p>{t('tm.marketsLead', { n: ASSETS.length, p: state?.perps.length ?? 0 })}</p>
       </div>
       <div className="tm-panel">
         <div className="tm-scroll">
           <table className="tm-table">
             <thead>
               <tr>
-                <th className="l">Asset</th><th>Index Price</th><th>24H</th><th>Price (USD)</th><th title="Option premium traded, buys and sells">Options Vol.</th><th title="Notional of perp positions opened">Perp Vol.</th><th>Perp OI (L / S)</th><th>Funding</th><th className="l">Oracle</th><th className="l">Status</th><th />
+                <th className="l">{t('tm.asset')}</th><th>{t('tm.indexPrice')}</th><th>{t('tm.h24')}</th><th>{t('tm.priceUsd')}</th><th title={t('tm.optVolTitle')}>{t('tm.optVol')}</th><th title={t('tm.perpVolTitle')}>{t('tm.perpVol')}</th><th>{t('tm.perpOi')}</th><th>{t('tm.funding')}</th><th className="l">{t('tm.oracle')}</th><th className="l">{t('tm.status')}</th><th />
               </tr>
             </thead>
             <tbody>
@@ -53,11 +55,11 @@ export function MarketsView({ quotes, state, onTrade }: {
                     <td className={volumes?.[a.symbol]?.perps ? '' : 'dim'}>{perp ? fmtUsd(volumes?.[a.symbol]?.perps ?? 0, 0) : '—'}</td>
                     <td>{perp ? `${fmtCompact(perp.longOi)} / ${fmtCompact(perp.shortOi)}` : '—'}</td>
                     <td>{perp ? `${(perp.fundingRate * 100).toFixed(4)}%` : '—'}</td>
-                    <td className="l">{perp ? <span className="tm-pill chainlink">{priceSource(network, true).toUpperCase()}</span> : <span className="tm-pill">SIGNED</span>}</td>
-                    <td className="l">{q?.halted ? <span className="tm-pill closed">HALTED</span> : <span className="tm-pill open">ACTIVE</span>}</td>
+                    <td className="l">{perp ? <span className="tm-pill chainlink">{t(SOURCE_KEY[priceSource(network, true)]).toUpperCase()}</span> : <span className="tm-pill">{t('tm.SIGNED')}</span>}</td>
+                    <td className="l">{q?.halted ? <span className="tm-pill closed">{t('tm.HALTED')}</span> : <span className="tm-pill open">{t('tm.ACTIVE')}</span>}</td>
                     <td>
-                      <button type="button" className="tm-mini" onClick={() => onTrade(a.symbol, 'options')}>Trade Options</button>{' '}
-                      {perp && <button type="button" className="tm-mini" onClick={() => onTrade(a.symbol, 'perps')}>Trade Perps</button>}
+                      <button type="button" className="tm-mini" onClick={() => onTrade(a.symbol, 'options')}>{t('tm.tradeOptions')}</button>{' '}
+                      {perp && <button type="button" className="tm-mini" onClick={() => onTrade(a.symbol, 'perps')}>{t('tm.tradePerps')}</button>}
                     </td>
                   </tr>
                 );
@@ -85,9 +87,10 @@ export function PortfolioView({ address, account, positions, holdings, history, 
   onSellOption: (h: OptionHolding) => void;
   onRedeem: (h: OptionHolding) => void;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<'all' | 'perps' | 'options' | 'history'>('all');
   if (!address) {
-    return <div className="tm-view"><h1>Your Portfolio</h1><div className="tm-panel"><div className="tm-empty"><b>Wallet not connected</b>Connect your wallet to view your portfolio.</div></div></div>;
+    return <div className="tm-view"><h1>{t('tm.portfolioTitle')}</h1><div className="tm-panel"><div className="tm-empty"><b>{t('tm.walletNotConnected')}</b>{t('tm.connectPortfolio')}</div></div></div>;
   }
   const unrealised = (positions ?? []).reduce((s, p) => s + p.pnl - p.fundingOwed, 0);
   const payouts = (holdings ?? []).filter((h) => h.settled).reduce((s, h) => s + h.payoutPerContract * h.contracts, 0);
@@ -97,20 +100,20 @@ export function PortfolioView({ address, account, positions, holdings, history, 
 
   return (
     <div className="tm-view">
-      <div><h1>Your Portfolio</h1><p>Everything you hold in HanMarket on this network.</p></div>
+      <div><h1>{t('tm.portfolioTitle')}</h1><p>{t('tm.portfolioLead')}</p></div>
       <div className="tm-kpis">
-        <div className="tm-kpi"><span>PORTFOLIO VALUE</span><b>{fmtUsd(value)}</b></div>
-        <div className="tm-kpi"><span>Available Collateral</span><b>{fmtUsd(account?.free ?? 0)}</b></div>
-        <div className="tm-kpi"><span>Locked Margin</span><b>{fmtUsd(account?.locked ?? 0)}</b></div>
-        <div className="tm-kpi"><span>Unrealized PnL</span><b className={tone(unrealised)}>{fmtUsd(unrealised)}</b></div>
-        <div className="tm-kpi"><span>Realized PnL (perps)</span><b className={tone(realised)}>{fmtUsd(realised)}</b></div>
-        <div className="tm-kpi"><span>Vault LP Value</span><b>{fmtUsd(account?.lpValue ?? 0)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.portfolioValue')}</span><b>{fmtUsd(value)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.availableCollateral')}</span><b>{fmtUsd(account?.free ?? 0)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.lockedMargin')}</span><b>{fmtUsd(account?.locked ?? 0)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.unrealized')}</span><b className={tone(unrealised)}>{fmtUsd(unrealised)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.realized')}</span><b className={tone(realised)}>{fmtUsd(realised)}</b></div>
+        <div className="tm-kpi"><span>{t('tm.lpValue')}</span><b>{fmtUsd(account?.lpValue ?? 0)}</b></div>
       </div>
       <div className="tm-panel">
         <div className="tm-tabs" role="tablist">
-          {(['all', 'perps', 'options', 'history'] as const).map((t) => (
-            <button key={t} type="button" role="tab" className="tm-tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {{ all: 'All Positions', perps: 'Perpetuals', options: 'Options', history: 'History' }[t]}
+          {(['all', 'perps', 'options', 'history'] as const).map((k) => (
+            <button key={k} type="button" role="tab" className="tm-tab" aria-selected={tab === k} onClick={() => setTab(k)}>
+              {t(({ all: 'tm.allPositions', perps: 'tm.perpetuals', options: 'tm.options', history: 'tm.history' } as const)[k])}
             </button>
           ))}
         </div>
@@ -127,6 +130,7 @@ export function PortfolioView({ address, account, positions, holdings, history, 
 // ---------------------------------------------------------------- vault (LPs)
 
 export function VaultView({ address, account, tx, deployed }: { address?: Address; account?: AccountState; tx: Tx; deployed: boolean }) {
+  const { t, lang } = useI18n();
   const unit = useCollateralSymbol();
   const { d } = useProtocol();
   const { data: v } = useVaultStats();
@@ -155,36 +159,36 @@ export function VaultView({ address, account, tx, deployed }: { address?: Addres
       steps = [(w) => w.writeContract({ address: d.vault, abi: vaultAbi, functionName: 'removeLiquidity', args: [part, (toUsd6(a) * 99n) / 100n] })];
     }
     const outcome = mode === 'add'
-      ? { text: `${fmtUsd(a)} is in the pool and your hmLP shares are locked for 24 hours. Your share value is shown above.` }
-      : { text: `${fmtUsd(a)} has left the pool and is back in your wallet.` };
-    if (await tx.run(mode === 'add' ? `Add ${fmtUsd(a)} liquidity` : `Remove ${fmtUsd(a)} liquidity`, steps, outcome)) setAmount('');
+      ? { text: t('tm.outAdd', { amount: fmtUsd(a) }) }
+      : { text: t('tm.outRemove', { amount: fmtUsd(a) }) };
+    if (await tx.run(t(mode === 'add' ? 'tm.txAdd' : 'tm.txRemove', { amount: fmtUsd(a) }), steps, outcome)) setAmount('');
   };
 
   return (
     <div className="tm-view">
       <div>
-        <h1>HanMarket Vault</h1>
-        <p>The vault is the counterparty to every option and perp. LPs earn 70% of trading fees, option premiums and trader losses, and pay trader profits.</p>
+        <h1>{t('tm.vaultTitle')}</h1>
+        <p>{t('tm.vaultLead')}</p>
       </div>
       <div className="tm-kpis">
-        <div className="tm-kpi"><span>Vault Value (NAV)</span><b>{v ? fmtUsd(v.nav) : '—'}</b></div>
-        <div className="tm-kpi"><span>Pool Cash</span><b>{v ? fmtUsd(v.pool) : '—'}</b></div>
-        <div className="tm-kpi"><span>Reserved for Payouts</span><b>{v ? fmtUsd(v.reserved) : '—'}</b></div>
-        <div className="tm-kpi"><span>Utilization</span><b>{v ? `${(v.utilization * 100).toFixed(1)}%` : '—'}</b></div>
-        <div className="tm-kpi"><span>Withdrawable Now</span><b>{v ? fmtUsd(v.free) : '—'}</b></div>
-        <div className="tm-kpi"><span>Your Position</span><b>{address ? fmtUsd(account?.lpValue ?? 0) : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.navValue')}</span><b>{v ? fmtUsd(v.nav) : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.poolCash')}</span><b>{v ? fmtUsd(v.pool) : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.reserved')}</span><b>{v ? fmtUsd(v.reserved) : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.utilization')}</span><b>{v ? `${(v.utilization * 100).toFixed(1)}%` : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.withdrawable')}</span><b>{v ? fmtUsd(v.free) : '—'}</b></div>
+        <div className="tm-kpi"><span>{t('tm.yourPosition')}</span><b>{address ? fmtUsd(account?.lpValue ?? 0) : '—'}</b></div>
       </div>
       <div className="tm-panel" style={{ maxWidth: 520 }}>
-        <div className="tm-panel-h">Provide liquidity</div>
+        <div className="tm-panel-h">{t('tm.provide')}</div>
         <div style={{ padding: 16 }}>
           <div className="tm-types" role="tablist" style={{ marginTop: 0 }}>
-            <button type="button" role="tab" aria-selected={mode === 'add'} onClick={() => setMode('add')}>Add</button>
-            <button type="button" role="tab" aria-selected={mode === 'remove'} onClick={() => setMode('remove')}>Remove</button>
+            <button type="button" role="tab" aria-selected={mode === 'add'} onClick={() => setMode('add')}>{t('tm.add')}</button>
+            <button type="button" role="tab" aria-selected={mode === 'remove'} onClick={() => setMode('remove')}>{t('tm.remove')}</button>
           </div>
-          <div className="tm-label"><span>Amount ({unit})</span><span>{mode === 'add' ? `Wallet ${fmtUsd(account?.wallet ?? 0)}` : `Your LP ${fmtUsd(account?.lpValue ?? 0)}`}</span></div>
+          <div className="tm-label"><span>{t('tm.amountUnit', { unit })}</span><span>{mode === 'add' ? t('tm.walletAmount', { amount: fmtUsd(account?.wallet ?? 0) }) : t('tm.yourLp', { amount: fmtUsd(account?.lpValue ?? 0) })}</span></div>
           <div className="tm-input">
-            <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Liquidity amount" />
-            <span role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setAmount(max > 0 ? (Math.floor(max * 100) / 100).toString() : '')}>MAX</span>
+            <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={t('tm.liquidityAria')} />
+            <span role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setAmount(max > 0 ? (Math.floor(max * 100) / 100).toString() : '')}>{t('tm.max')}</span>
           </div>
           <button
             type="button"
@@ -192,10 +196,10 @@ export function VaultView({ address, account, tx, deployed }: { address?: Addres
             disabled={!deployed || !address || a <= 0 || a > max + 1e-9 || busy || (mode === 'remove' && locked)}
             onClick={submit}
           >
-            {!deployed ? 'Not deployed' : !address ? 'Connect wallet' : mode === 'remove' && locked ? `Locked until ${new Date((account?.lpUnlockAt ?? 0) * 1000).toLocaleString()}` : mode === 'add' ? 'Add Liquidity' : 'Remove Liquidity'}
+            {!deployed ? t('tm.notDeployedShort') : !address ? t('tm.connectWallet') : mode === 'remove' && locked ? t('tm.lockedUntil', { date: new Date((account?.lpUnlockAt ?? 0) * 1000).toLocaleString(lang) }) : t(mode === 'add' ? 'tm.addLiquidity' : 'tm.removeLiquidity')}
           </button>
           <div className="tm-note">
-            New liquidity is locked for 24 hours. Withdrawals are limited to funds not reserved for open positions. LPs carry the risk of traders winning; the protocol is not yet audited.
+            {t('tm.vaultNote')}
           </div>
         </div>
       </div>
@@ -206,17 +210,18 @@ export function VaultView({ address, account, tx, deployed }: { address?: Addres
 // ---------------------------------------------------------------- tx toast
 
 const STAGES: TxState['stage'][] = ['preparing', 'wallet', 'confirming', 'confirmed'];
-const LABEL: Record<TxState['stage'], string> = {
-  idle: '', preparing: 'Preparing', wallet: 'Awaiting wallet', confirming: 'Confirming', confirmed: 'Confirmed', failed: 'Failed',
+const LABEL: Record<Exclude<TxState['stage'], 'idle'>, MsgKey> = {
+  preparing: 'tm.stage.preparing', wallet: 'tm.stage.wallet', confirming: 'tm.stage.confirming', confirmed: 'tm.stage.confirmed', failed: 'tm.stage.failed',
 };
 
 export function TxToast({ state, explorer, onClose }: { state: TxState; explorer?: string; onClose: () => void }) {
+  const t = useT();
   // a confirmation fades out on its own; a failure stays until it is read and closed. One that points at
   // its result stays longer, so there is time to read the sentence and press the button.
   useEffect(() => {
     if (state.stage !== 'confirmed') return;
-    const t = setTimeout(onClose, state.outcome ? 12000 : 6000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(onClose, state.outcome ? 12000 : 6000);
+    return () => clearTimeout(timer);
   }, [state.stage, state.hash, state.outcome, onClose]);
   if (state.stage === 'idle') return null;
   const at = STAGES.indexOf(state.stage);
@@ -224,11 +229,11 @@ export function TxToast({ state, explorer, onClose }: { state: TxState; explorer
     <div className={`tm-toast ${state.stage}`} role="status" aria-live="polite">
       <div className="tm-toast-h">
         <span>{state.stage === 'confirmed' ? '✓ ' : ''}{state.label}</span>
-        {(state.stage === 'confirmed' || state.stage === 'failed') && <button type="button" className="tm-link" onClick={onClose}>Close</button>}
+        {(state.stage === 'confirmed' || state.stage === 'failed') && <button type="button" className="tm-link" onClick={onClose}>{t('tm.dismiss')}</button>}
       </div>
       <div className="tm-steps">{STAGES.map((s, i) => <i key={s} className={state.stage === 'failed' ? '' : i <= at ? 'on' : ''} />)}</div>
       <div className={state.stage === 'failed' ? 'down' : 'muted'} style={{ fontSize: 12 }}>
-        {state.stage === 'failed' ? state.error : LABEL[state.stage]}
+        {state.stage === 'failed' ? state.error : t(LABEL[state.stage])}
       </div>
       {state.stage === 'confirmed' && state.outcome && (
         <div className="tm-toast-outcome">
@@ -244,7 +249,7 @@ export function TxToast({ state, explorer, onClose }: { state: TxState; explorer
           )}
         </div>
       )}
-      {state.hash && explorer && <a className="tm-link" href={`${explorer}/tx/${state.hash}`} target="_blank" rel="noreferrer">View on Explorer ↗</a>}
+      {state.hash && explorer && <a className="tm-link" href={`${explorer}/tx/${state.hash}`} target="_blank" rel="noreferrer">{t('tm.viewExplorer')}</a>}
     </div>
   );
 }
@@ -261,30 +266,30 @@ export function ActivityView({ address, history, error, explorer }: {
   error?: Error | null;
   explorer?: string;
 }) {
+  const t = useT();
   const [filter, setFilter] = useState<ActivityFilter>('all');
   if (!address) {
-    return <div className="tm-view"><h1>Activity</h1><div className="tm-panel"><div className="tm-empty"><b>Wallet not connected</b>Connect your wallet to see its transactions.</div></div></div>;
+    return <div className="tm-view"><h1>{t('tm.activityTitle')}</h1><div className="tm-panel"><div className="tm-empty"><b>{t('tm.walletNotConnected')}</b>{t('tm.connectActivity')}</div></div></div>;
   }
   const rows = history?.filter((r) => filter === 'all' || (filter === 'transfers') === !!r.transfer);
   const count = (f: ActivityFilter) => history?.filter((r) => f === 'all' || (f === 'transfers') === !!r.transfer).length ?? 0;
   return (
     <div className="tm-view">
       <div>
-        <h1>Activity</h1>
-        <p>Every transaction this wallet made on this network, newest first, each linked to the explorer.</p>
+        <h1>{t('tm.activityTitle')}</h1>
+        <p>{t('tm.activityLead')}</p>
       </div>
       <div className="tm-panel">
         <div className="tm-tabs" role="tablist">
           {(['all', 'trades', 'transfers'] as const).map((f) => (
             <button key={f} type="button" role="tab" className="tm-tab" aria-selected={filter === f} onClick={() => setFilter(f)}>
-              {{ all: 'All', trades: 'Trades', transfers: 'Deposits & withdrawals' }[f]} ({count(f)})
+              {t(({ all: 'tm.all', trades: 'tm.trades', transfers: 'tm.transfers' } as const)[f])} ({count(f)})
             </button>
           ))}
         </div>
         <div className="tm-scroll"><HistoryTable rows={rows} explorer={explorer} error={error} /></div>
         <div className="tm-note" style={{ margin: '0 16px 14px' }}>
-          Funding is not a separate transaction: it is settled into a position’s margin whenever the position changes, so it shows
-          up in that trade’s result rather than as its own row.
+          {t('tm.fundingNote')}
         </div>
       </div>
     </div>

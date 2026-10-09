@@ -282,3 +282,7 @@ body {
     padding: 1.5rem;
   }
 }
+
+/* Thai is never letter-spaced: the site's tracked uppercase labels pull its vowel and tone marks away from their
+   consonants. Anything marked lang="en" (the HANMARKET wordmarks) keeps its tracking. */
+:lang(th) { letter-spacing: normal !important; }

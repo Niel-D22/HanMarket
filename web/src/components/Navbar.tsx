@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useNetwork } from '../contexts/NetworkContext';
 import { ThemeToggle } from '../theme/ThemeProvider';
 import { X_URL } from '../config/social';
 import { ChinaClock, MusicToggle } from './ChinaClock';
+import { useT } from '../i18n';
+import { LanguageSwitch } from '../i18n/LanguageSwitch';
 import './Navbar.css';
 
 interface NavbarProps {
@@ -14,7 +16,7 @@ interface NavbarProps {
 }
 
 export const LogoText: FC = () => (
-  <span className="logo-text" style={{ fontFamily: "'Montserrat', 'Inter Tight', sans-serif", letterSpacing: '0.32em', fontWeight: 500, fontSize: '0.78em' }}>
+  <span className="logo-text" lang="en" style={{ fontFamily: "'Montserrat', 'Inter Tight', sans-serif", letterSpacing: '0.32em', fontWeight: 500, fontSize: '0.78em' }}>
     HANMARKET
   </span>
 );
@@ -31,15 +33,60 @@ const TUCK_STEP = 4;
 /** once scrolling stops for this long, the bar comes back */
 const SHOW_AFTER_REST_MS = 700;
 
+/**
+ * What the landing bar drops, in this order, when its words do not fit the width. The CSS breakpoints are measured
+ * for English; Russian, Vietnamese, Spanish and the like run 40-130px longer, so on top of them the bar checks itself
+ * and drops one more piece at a time (all of them stay in the phone menu). 'compact' is the menu layout.
+ */
+const SQUEEZE = ['title', 'city', 'clock', 'track', 'compact', 'launch', 'lang', 'player'] as const;
+
 export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   // out of the way while the visitor reads on down; back when they scroll up, stop, or return to the top
   const [isTucked, setIsTucked] = useState(false);
   const isTerminal = variant === 'terminal';
+  const t = useT();
   const { network, setNetwork } = useNetwork();
   // the landing page's hero carries the coin itself (and it travels down the page), so the bar shows only the name there
   const showMark = useLocation().pathname !== '/';
+  const navRef = useRef<HTMLElement>(null);
+
+  // set as a data attribute, not through React, so a re-render (scrolling, the menu) does not undo it
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav || isTerminal) return;
+    // every control ends inside the bar's side padding, at least 40px from the edge where the padding is that wide
+    // (an overflowing grid first spills into the padding, which scrollWidth does not count, so the controls
+    // themselves are measured)
+    const fits = () => {
+      const pad = parseFloat(getComputedStyle(nav).paddingRight) || 0;
+      const limit = nav.getBoundingClientRect().right - Math.max(16, Math.min(pad, 40));
+      return [...nav.querySelectorAll('.navbar-actions > *')].every((el) => el.getBoundingClientRect().right <= limit);
+    };
+    const fit = () => {
+      // measured with the bar's padding transition off: a half-animated padding reads as overflow, and the bar then
+      // flipped between dropping everything and nothing (seen in Spanish at 1160-1200px with the music on)
+      nav.style.transition = 'none';
+      nav.removeAttribute('data-squeeze');
+      const dropped: string[] = [];
+      for (const piece of SQUEEZE) {
+        if (fits()) break;
+        dropped.push(piece);
+        nav.setAttribute('data-squeeze', dropped.join(' '));
+      }
+      void nav.offsetWidth; // commit the final layout before the transition comes back, so it does not animate
+      nav.style.transition = '';
+    };
+    fit();
+    // the bar's width, the player growing when music starts, and web fonts arriving all change what fits; refit on
+    // the next frame, outside the observer's own callback, so the change it makes is not reported back as a loop
+    let frame = 0;
+    const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(fit); });
+    observer.observe(nav);
+    nav.querySelectorAll('.navbar-actions, .navbar-links').forEach((el) => observer.observe(el));
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [isTerminal, t]);
 
   useEffect(() => {
     if (isTerminal) return;
@@ -66,6 +113,7 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
   return (
     <>
       <nav
+        ref={navRef}
         className={`navbar-container ${isTerminal ? 'navbar-terminal' : 'navbar-landing'} ${isScrolled ? 'navbar-scrolled' : ''} ${isTucked && !isMobileMenuOpen ? 'navbar-tucked' : ''}`}
         onFocus={() => setIsTucked(false)} // tabbing into a tucked bar brings it back
       >
@@ -80,15 +128,16 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
       </Link>
       {!isTerminal && (
         <div className="navbar-links">
-          <Link to="/#how" style={{ textDecoration: 'none' }}>How It Works</Link>
-          <Link to="/#markets" style={{ textDecoration: 'none' }}>Markets</Link>
-          <Link to="/#faq" style={{ textDecoration: 'none' }}>FAQ</Link>
-          <Link to="/docs" style={{ textDecoration: 'none' }}>Docs</Link>
+          <Link to="/#how" style={{ textDecoration: 'none' }}>{t('nav.howItWorks')}</Link>
+          <Link to="/#markets" style={{ textDecoration: 'none' }}>{t('nav.markets')}</Link>
+          <Link to="/#faq" style={{ textDecoration: 'none' }}>{t('nav.faq')}</Link>
+          <Link to="/docs" style={{ textDecoration: 'none' }}>{t('nav.docs')}</Link>
         </div>
       )}
       <div className="navbar-actions">
         {!isTerminal && <ChinaClock />}
         {!isTerminal && <MusicToggle />}
+        {!isTerminal && <LanguageSwitch />}
         <ThemeToggle />
         {isTerminal && (
           <div className="net-toggle" style={{
@@ -135,8 +184,8 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
           href={X_URL} 
           target="_blank" 
           rel="noreferrer noopener" 
-          aria-label="HanMarket on X" 
-          title="HanMarket on X" 
+          aria-label={t('nav.onX')} 
+          title={t('nav.onX')} 
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -155,13 +204,13 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
         </a>
         )}
         {!isTerminal && (
-          <Link to="/terminal" className="navbar-launch">Launch App <span aria-hidden="true">→</span></Link>
+          <Link to="/terminal" className="navbar-launch">{t('nav.launchApp')} <span aria-hidden="true">→</span></Link>
         )}
         {actions}
         {!isTerminal && (
           <button 
             className="hamburger-btn" 
-            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-label={t(isMobileMenuOpen ? 'nav.closeMenu' : 'nav.openMenu')}
             aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
@@ -187,15 +236,16 @@ export const Navbar: FC<NavbarProps> = ({ variant = 'landing', actions }) => {
     {!isTerminal && isMobileMenuOpen && (
       <div className="mobile-menu-overlay">
         <div className="mobile-menu-content">
-          <Link to="/#how" onClick={() => setIsMobileMenuOpen(false)}>How It Works</Link>
-          <Link to="/#markets" onClick={() => setIsMobileMenuOpen(false)}>Markets</Link>
-          <Link to="/#faq" onClick={() => setIsMobileMenuOpen(false)}>FAQ</Link>
-          <Link to="/docs" onClick={() => setIsMobileMenuOpen(false)}>Docs</Link>
+          <Link to="/#how" onClick={() => setIsMobileMenuOpen(false)}>{t('nav.howItWorks')}</Link>
+          <Link to="/#markets" onClick={() => setIsMobileMenuOpen(false)}>{t('nav.markets')}</Link>
+          <Link to="/#faq" onClick={() => setIsMobileMenuOpen(false)}>{t('nav.faq')}</Link>
+          <Link to="/docs" onClick={() => setIsMobileMenuOpen(false)}>{t('nav.docs')}</Link>
           <div className="mobile-menu-extras">
             <ChinaClock variant="menu" />
             <MusicToggle variant="menu" />
+            <LanguageSwitch variant="menu" />
           </div>
-          <Link to="/terminal" className="mobile-menu-launch" onClick={() => setIsMobileMenuOpen(false)}>Launch App →</Link>
+          <Link to="/terminal" className="mobile-menu-launch" onClick={() => setIsMobileMenuOpen(false)}>{t('nav.launchApp')} →</Link>
         </div>
       </div>
     )}

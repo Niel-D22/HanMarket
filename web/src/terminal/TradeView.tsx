@@ -9,8 +9,8 @@ import { closedMessage } from '../utils/marketHours';
 import { optionsEventsAbi, perpsAbi } from '../../api/_lib/protocol/abis';
 import { useOptionChain, type ChainRow, type ChainSide, type SelectedOption } from './options';
 import {
-  fmtCompact, fmtExpiry, fmtPrice, fmtUsd, optionLabel, priceSource, tone, useAllSeries, useCollateralSymbol, useProtocol, usd,
-  type HistoryRow, type OptionHolding, type PerpMarket, type PerpPosition, type ProtocolState,
+  KIND_KEY, SOURCE_KEY, fmtCompact, fmtExpiry, fmtPrice, fmtUsd, historyDetail, optionLabel, priceSource, tone, useAllSeries,
+  useCollateralSymbol, useProtocol, usd, type HistoryRow, type OptionHolding, type PerpMarket, type PerpPosition, type ProtocolState,
 } from './protocol';
 import type { Product } from './Chrome';
 import { OptionsFlow } from './Flow';
@@ -18,6 +18,7 @@ import { PerpStatsTable } from './PerpStats';
 import { IconChevron } from './icons';
 import type { PanelKey, Panels } from './panels';
 import type { NetworkKey } from '../contexts/NetworkContext';
+import { useI18n, useT, type MsgKey } from '../i18n';
 
 /** The tabs of the bottom panel. */
 export type BottomTab = 'chain' | 'flow' | 'funding' | 'positions' | 'options' | 'history';
@@ -45,8 +46,9 @@ export function StatsBar({ symbol, product, quote, perp, chainIv, source }: {
   perp?: PerpMarket;
   chainIv?: number;
   /** from priceSource(): Chainlink, Testnet feed or Signed price */
-  source: string;
+  source: ReturnType<typeof priceSource>;
 }) {
+  const t = useT();
   const unit = useCollateralSymbol();
   const asset = findAsset(symbol);
   const countdown = useCountdown(perp?.nextFunding);
@@ -56,7 +58,7 @@ export function StatsBar({ symbol, product, quote, perp, chainIv, source }: {
     <div className="tm-stats">
       <div className="sym">
         <b>{isPerp ? perp.symbol : symbol}</b>
-        <span className="muted">· {isPerp ? 'Perpetual' : 'Options'}{asset ? <> · <span className="cn">{asset.cn}</span></> : null}</span>
+        <span className="muted">· {t(isPerp ? 'tm.perpetual' : 'tm.options')}{asset ? <> · <span className="cn">{asset.cn}</span></> : null}</span>
       </div>
       <div>
         <span className="price">{fmtPrice(quote?.price ?? 0)}</span>{' '}
@@ -64,25 +66,25 @@ export function StatsBar({ symbol, product, quote, perp, chainIv, source }: {
         <span className={`num ${tone(c)}`}>{pct(c)}</span>
       </div>
       {/* the underlying's own session, which the option and perp are priced off */}
-      <div className="tm-stat"><span>24h High</span><span>{quote?.high ? fmtPrice(quote.high) : '—'}</span></div>
-      <div className="tm-stat"><span>24h Low</span><span>{quote?.low ? fmtPrice(quote.low) : '—'}</span></div>
-      <div className="tm-stat"><span>24h Volume</span><span>{quote?.volume ? fmtCompact(quote.volume) : '—'}</span></div>
+      <div className="tm-stat"><span>{t('tm.high24')}</span><span>{quote?.high ? fmtPrice(quote.high) : '—'}</span></div>
+      <div className="tm-stat"><span>{t('tm.low24')}</span><span>{quote?.low ? fmtPrice(quote.low) : '—'}</span></div>
+      <div className="tm-stat"><span>{t('tm.volume24')}</span><span>{quote?.volume ? fmtCompact(quote.volume) : '—'}</span></div>
       {isPerp ? (
         <>
-          <div className="tm-stat"><span>Index ({source})</span><span>{fmtPrice(perp.indexPrice)} {unit}</span></div>
-          <div className="tm-stat"><span>Mark</span><span>{fmtPrice(perp.indexPrice)} {unit}</span></div>
-          <div className="tm-stat"><span>Open Interest L / S</span><span>{fmtCompact(perp.longOi)} / {fmtCompact(perp.shortOi)}</span></div>
-          <div className="tm-stat"><span>Funding / {perp.risk.fundingInterval / 3600}h</span><span className={perp.fundingRate > 0 ? 'up' : perp.fundingRate < 0 ? 'down' : ''}>{(perp.fundingRate * 100).toFixed(4)}%</span></div>
-          <div className="tm-stat"><span>Next Funding</span><span>{countdown}</span></div>
-          <div className="tm-stat"><span>Max Leverage</span><span>{perp.risk.maxLeverage}x</span></div>
-          <span className={`tm-pill ${perp.tradingOpen ? 'open' : 'closed'}`}>{perp.tradingOpen ? 'OPEN' : 'CLOSED'}</span>
+          <div className="tm-stat"><span>{t('tm.indexFrom', { source: t(SOURCE_KEY[source]) })}</span><span>{fmtPrice(perp.indexPrice)} {unit}</span></div>
+          <div className="tm-stat"><span>{t('tm.mark')}</span><span>{fmtPrice(perp.indexPrice)} {unit}</span></div>
+          <div className="tm-stat"><span>{t('tm.oiLS')}</span><span>{fmtCompact(perp.longOi)} / {fmtCompact(perp.shortOi)}</span></div>
+          <div className="tm-stat"><span>{t('tm.fundingPer', { h: perp.risk.fundingInterval / 3600 })}</span><span className={perp.fundingRate > 0 ? 'up' : perp.fundingRate < 0 ? 'down' : ''}>{(perp.fundingRate * 100).toFixed(4)}%</span></div>
+          <div className="tm-stat"><span>{t('tm.nextFunding')}</span><span>{countdown}</span></div>
+          <div className="tm-stat"><span>{t('tm.maxLeverage')}</span><span>{perp.risk.maxLeverage}x</span></div>
+          <span className={`tm-pill ${perp.tradingOpen ? 'open' : 'closed'}`}>{t(perp.tradingOpen ? 'tm.OPEN' : 'tm.CLOSED')}</span>
         </>
       ) : (
         <>
-          <div className="tm-stat"><span>Index (USD)</span><span>{fmtPrice(quote?.priceUsd ?? 0)} {unit}</span></div>
-          <div className="tm-stat"><span>Implied Vol</span><span>{chainIv ? `${(chainIv * 100).toFixed(1)}%` : '—'}</span></div>
-          <div className="tm-stat"><span>Settlement</span><span>{source}</span></div>
-          <div className="tm-stat"><span>Settlement Token</span><span>{unit}</span></div>
+          <div className="tm-stat"><span>{t('tm.indexUsd')}</span><span>{fmtPrice(quote?.priceUsd ?? 0)} {unit}</span></div>
+          <div className="tm-stat"><span>{t('tm.impliedVol')}</span><span>{chainIv ? `${(chainIv * 100).toFixed(1)}%` : '—'}</span></div>
+          <div className="tm-stat"><span>{t('tm.settlement')}</span><span>{t(SOURCE_KEY[source])}</span></div>
+          <div className="tm-stat"><span>{t('tm.settlementToken')}</span><span>{unit}</span></div>
           <span className={`tm-pill ${source !== 'Signed price' ? 'chainlink' : ''}`}>{asset?.board === 'HK' ? 'HKEX' : 'US ADR'}</span>
         </>
       )}
@@ -92,7 +94,8 @@ export function StatsBar({ symbol, product, quote, perp, chainIv, source }: {
 
 // ---------------------------------------------------------------- recent trades
 
-interface TradeRow { key: string; price: number; size: string; side: 'buy' | 'sell'; label: string }
+/** `perp` is a perp trade's side or a close, worded at render; an option trade carries its strike as `label` */
+interface TradeRow { key: string; price: number; size: string; side: 'buy' | 'sell'; label: string; perp?: 'long' | 'short' | 'close' }
 
 function useRecentTrades(symbol: string, product: Product, perp: PerpMarket | undefined, state: ProtocolState | undefined) {
   const { network, d, client, logClient } = useProtocol();
@@ -118,9 +121,10 @@ function useRecentTrades(symbol: string, product: Product, perp: PerpMarket | un
             return {
               key: `${l.transactionHash}-${l.logIndex}`,
               price: usd(l.args.price as bigint),
-              size: opening ? fmtCompact(usd(l.args.sizeUsd as bigint)) : 'close',
+              size: opening ? fmtCompact(usd(l.args.sizeUsd as bigint)) : '',
               side: opening === long ? 'buy' : 'sell',
-              label: opening ? (long ? 'Long' : 'Short') : 'Close',
+              label: '',
+              perp: opening ? (long ? 'long' : 'short') : 'close',
             } satisfies TradeRow;
           });
       }
@@ -151,29 +155,31 @@ export function RecentTrades({ symbol, product, perp, state, open, onToggle }: {
   open: boolean;
   onToggle: () => void;
 }) {
+  const t = useT();
   const unit = useCollateralSymbol();
   const { data } = useRecentTrades(symbol, product, perp, state);
+  const perpLabel: Record<NonNullable<TradeRow['perp']>, MsgKey> = { long: 'tm.long', short: 'tm.short', close: 'tm.close' };
   if (!open) {
     return (
       <div className="tm-trades tm-rail">
-        <button type="button" onClick={onToggle} aria-expanded="false" aria-label="Show recent trades" title="Show recent trades ( T )">Trades</button>
+        <button type="button" onClick={onToggle} aria-expanded="false" aria-label={t('tm.showTrades')} title={`${t('tm.showTrades')} ( T )`}>{t('tm.trades')}</button>
       </div>
     );
   }
   return (
     <div className="tm-trades">
       <div className="tm-tabs">
-        <span className="tm-tab" aria-selected="true">Trades</span>
-        <button type="button" className="tm-fold" onClick={onToggle} aria-expanded="true" aria-label="Hide recent trades" title="Hide recent trades ( T )">›</button>
+        <span className="tm-tab" aria-selected="true">{t('tm.trades')}</span>
+        <button type="button" className="tm-fold" onClick={onToggle} aria-expanded="true" aria-label={t('tm.hideTrades')} title={`${t('tm.hideTrades')} ( T )`}>›</button>
       </div>
-      <div className="tm-trades-h"><span>{product === 'perps' ? `Price (${unit})` : 'Premium'}</span><span>Size</span><span>Side</span></div>
+      <div className="tm-trades-h"><span>{product === 'perps' ? t('tm.priceIn', { unit }) : t('tm.premium')}</span><span>{t('tm.size')}</span><span>{t('tm.side')}</span></div>
       <div className="tm-scroll" style={{ flex: 1 }}>
-        {!data?.length && <div className="tm-empty">No trades yet on this market.</div>}
-        {data?.map((t) => (
-          <div key={t.key} className="tm-trades-row">
-            <span className={t.side === 'buy' ? 'up' : 'down'}>{fmtPrice(t.price)}</span>
-            <span>{t.size}</span>
-            <span className="muted">{t.label}</span>
+        {!data?.length && <div className="tm-empty">{t('tm.noTrades')}</div>}
+        {data?.map((row) => (
+          <div key={row.key} className="tm-trades-row">
+            <span className={row.side === 'buy' ? 'up' : 'down'}>{fmtPrice(row.price)}</span>
+            <span>{row.size || t('tm.closeLc')}</span>
+            <span className="muted">{row.perp ? t(perpLabel[row.perp]) : row.label}</span>
           </div>
         ))}
       </div>
@@ -198,12 +204,16 @@ const CHAIN_COLUMNS = {
   ],
 } as const;
 type ChainColumns = keyof typeof CHAIN_COLUMNS;
+/** the column names that are words rather than Greek letters */
+const COLUMN_KEY: Partial<Record<string, MsgKey>> = { 'Open Int.': 'tm.openInt', 'Theta/d': 'tm.thetaD' };
 
 export function OptionChainTable({ symbol, selected, onPick }: {
   symbol: string;
   selected: SelectedOption | null;
   onPick: (o: SelectedOption) => void;
 }) {
+  const t = useT();
+  const colName = (label: string) => { const key = COLUMN_KEY[label]; return key ? t(key) : label; };
   const unit = useCollateralSymbol();
   const { data, isLoading, error } = useOptionChain(symbol);
   // null = the nearest expiry; 'all' = every expiry stacked in one table
@@ -221,10 +231,10 @@ export function OptionChainTable({ symbol, selected, onPick }: {
     return rows.reduce((best, r) => (Math.abs(r.strike - data.spot!) < Math.abs(best - data.spot!) ? r.strike : best), rows[0].strike);
   };
 
-  if (isLoading) return <div className="tm-empty">Loading option chain…</div>;
-  if (error) return <div className="tm-empty"><b>Option chain unavailable</b>{(error as Error).message}</div>;
-  if (!data?.deployed) return <div className="tm-empty"><b>Not deployed on this network yet</b>Options open once the HanMarket contracts are live here.</div>;
-  if (!data.expiries.length) return <div className="tm-empty"><b>No open series for {symbol}</b>New weekly expiries are listed every week by the keeper.</div>;
+  if (isLoading) return <div className="tm-empty">{t('tm.loadingChain')}</div>;
+  if (error) return <div className="tm-empty"><b>{t('tm.chainUnavailable')}</b>{(error as Error).message}</div>;
+  if (!data?.deployed) return <div className="tm-empty"><b>{t('tm.notDeployedYet')}</b>{t('tm.optionsOpenLater')}</div>;
+  if (!data.expiries.length) return <div className="tm-empty"><b>{t('tm.noSeries', { symbol })}</b>{t('tm.weeklyKeeper')}</div>;
 
   const pick = (expiryTs: number, side: ChainSide | undefined, isCall: boolean, strike: number, action: 'buy' | 'sell') => {
     if (!side) return;
@@ -242,7 +252,7 @@ export function OptionChainTable({ symbol, selected, onPick }: {
         className={`tm-q ${action === 'buy' ? 'ask' : 'bid'}`}
         disabled={!side || !value}
         aria-pressed={active}
-        title={action === 'buy' ? 'Buy at the ask' : 'Sell back at the bid'}
+        title={t(action === 'buy' ? 'tm.buyAtAsk' : 'tm.sellAtBid')}
         onClick={() => pick(expiryTs, side, isCall, strike, action)}
       >
         {value ? `$${value.toFixed(2)}` : '—'}
@@ -253,34 +263,34 @@ export function OptionChainTable({ symbol, selected, onPick }: {
   return (
     <>
       <div className="tm-expiries">
-        <span>Expiry:</span>
-        <button type="button" className="tm-chip" aria-pressed={showAll} title="Every expiry in one table" onClick={() => setExpiry('all')}>
-          All ({data.expiries.length})
+        <span>{t('tm.expiryColon')}</span>
+        <button type="button" className="tm-chip" aria-pressed={showAll} title={t('tm.allTitle')} onClick={() => setExpiry('all')}>
+          {t('tm.allN', { n: data.expiries.length })}
         </button>
         {data.expiries.map((e) => (
           <button key={e.expiry} type="button" className="tm-chip" aria-pressed={!showAll && e.expiry === exp?.expiry} onClick={() => setExpiry(e.expiry)}>
-            {fmtExpiry(e.expiry)} ({daysTo(e.expiry)}d)
+            {fmtExpiry(e.expiry)} ({t('tm.daysShort', { n: daysTo(e.expiry) })})
           </button>
         ))}
-        <span className="tm-chip-group" role="group" aria-label="Columns">
+        <span className="tm-chip-group" role="group" aria-label={t('tm.columns')}>
           {(['market', 'greeks'] as const).map((c) => (
-            <button key={c} type="button" className="tm-chip" aria-pressed={cols === c} onClick={() => setCols(c)}>{c === 'market' ? 'Market' : 'Greeks'}</button>
+            <button key={c} type="button" className="tm-chip" aria-pressed={cols === c} onClick={() => setCols(c)}>{t(c === 'market' ? 'tm.marketCols' : 'tm.greeks')}</button>
           ))}
         </span>
-        <span className="muted" style={{ marginLeft: 'auto' }}>Index: <span className="num gold">{fmtPrice(data.spot ?? 0)} {unit}</span>{!data.sessionOpen && ' · exchange closed, wider spreads'}</span>
+        <span className="muted" style={{ marginLeft: 'auto' }}>{t('tm.indexColon')} <span className="num gold">{fmtPrice(data.spot ?? 0)} {unit}</span>{!data.sessionOpen && t('tm.exchangeClosedWide')}</span>
       </div>
       <div className="tm-scroll">
         <table className="tm-table">
           <thead>
             <tr className="tm-chain-group">
-              <th colSpan={2 + extra.length} className="up">CALLS ({unit})</th>
+              <th colSpan={2 + extra.length} className="up">{t('tm.calls', { unit })}</th>
               <th className="c" />
-              <th colSpan={2 + extra.length} className="down">PUTS ({unit})</th>
+              <th colSpan={2 + extra.length} className="down">{t('tm.puts', { unit })}</th>
             </tr>
             <tr>
-              <th>Call Bid</th><th>Call Ask</th>{extra.map((c) => <th key={`c-${c.label}`}>{c.label}</th>)}
-              <th className="c">Strike</th>
-              <th className="l">Put Bid</th><th className="l">Put Ask</th>{extra.map((c) => <th key={`p-${c.label}`}>{c.label}</th>)}
+              <th>{t('tm.callBid')}</th><th>{t('tm.callAsk')}</th>{extra.map((c) => <th key={`c-${c.label}`}>{colName(c.label)}</th>)}
+              <th className="c">{t('tm.strike')}</th>
+              <th className="l">{t('tm.putBid')}</th><th className="l">{t('tm.putAsk')}</th>{extra.map((c) => <th key={`p-${c.label}`}>{colName(c.label)}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -290,7 +300,7 @@ export function OptionChainTable({ symbol, selected, onPick }: {
                 <Fragment key={e.expiry}>
                   {showAll && (
                     <tr className="tm-exp-row">
-                      <td colSpan={5 + extra.length * 2}>{fmtExpiry(e.expiry)} · {daysTo(e.expiry)} days to expiry</td>
+                      <td colSpan={5 + extra.length * 2}>{t('tm.daysToExpiry', { date: fmtExpiry(e.expiry), n: daysTo(e.expiry) })}</td>
                     </tr>
                   )}
                   {e.rows.map((r) => {
@@ -325,20 +335,21 @@ export function PerpPositionsTable({ rows, onClose, busy, marketOpen }: {
   busy: boolean;
   marketOpen: (marketId: number) => boolean;
 }) {
-  if (!rows?.length) return <div className="tm-empty">No open perpetual positions.</div>;
+  const t = useT();
+  if (!rows?.length) return <div className="tm-empty">{t('tm.noPerpPositions')}</div>;
   return (
     <table className="tm-table">
       <thead>
         <tr>
-          <th className="l">Market</th><th className="l">Side</th><th>Size</th><th>Notional</th><th>Entry</th><th>Mark</th>
-          <th>Liq. Price</th><th>Margin</th><th>Leverage</th><th>Funding</th><th>PnL</th><th />
+          <th className="l">{t('tm.market')}</th><th className="l">{t('tm.side')}</th><th>{t('tm.size')}</th><th>{t('tm.notional')}</th><th>{t('tm.entry')}</th><th>{t('tm.mark')}</th>
+          <th>{t('tm.liqPrice')}</th><th>{t('tm.margin')}</th><th>{t('tm.leverage')}</th><th>{t('tm.funding')}</th><th>{t('tm.pnl')}</th><th />
         </tr>
       </thead>
       <tbody>
         {rows.map((p) => (
           <tr key={`${p.marketId}-${p.isLong}`}>
             <td className="l"><b>{p.symbol}</b></td>
-            <td className={`l ${p.isLong ? 'up' : 'down'}`}>{p.isLong ? 'LONG' : 'SHORT'}</td>
+            <td className={`l ${p.isLong ? 'up' : 'down'}`}>{t(p.isLong ? 'tm.LONG' : 'tm.SHORT')}</td>
             <td>{p.size.toFixed(4)}</td>
             <td>{fmtUsd(p.notional)}</td>
             <td>{fmtPrice(p.entryPrice)}</td>
@@ -350,8 +361,8 @@ export function PerpPositionsTable({ rows, onClose, busy, marketOpen }: {
             <td className={tone(p.pnl)}>{fmtUsd(p.pnl)} <span className="dim">({pct((p.pnl / Math.max(p.collateral, 1e-9)) * 100, 1)})</span></td>
             <td>
               {p.liquidatable
-                ? <span className="tm-pill closed">LIQUIDATING</span>
-                : <button type="button" className="tm-mini" disabled={busy || !marketOpen(p.marketId)} title={marketOpen(p.marketId) ? '' : 'Market closed'} onClick={() => onClose(p)}>Close</button>}
+                ? <span className="tm-pill closed">{t('tm.liquidating')}</span>
+                : <button type="button" className="tm-mini" disabled={busy || !marketOpen(p.marketId)} title={marketOpen(p.marketId) ? '' : t('tm.marketClosed')} onClick={() => onClose(p)}>{t('tm.close')}</button>}
             </td>
           </tr>
         ))}
@@ -367,12 +378,13 @@ export function OptionPositionsTable({ rows, symbols, onSell, onRedeem, busy }: 
   onRedeem: (h: OptionHolding) => void;
   busy: boolean;
 }) {
-  if (!rows?.length) return <div className="tm-empty">No option positions.</div>;
+  const t = useT();
+  if (!rows?.length) return <div className="tm-empty">{t('tm.noOptionPositions')}</div>;
   const now = Date.now() / 1000;
   return (
     <table className="tm-table">
       <thead>
-        <tr><th className="l">Contract</th><th>Contracts</th><th>Strike</th><th>Cap</th><th>Expiry</th><th>Status</th><th>Payout</th><th /></tr>
+        <tr><th className="l">{t('tm.contract')}</th><th>{t('tm.contracts')}</th><th>{t('tm.strike')}</th><th>{t('tm.cap')}</th><th>{t('tm.expiry')}</th><th>{t('tm.status')}</th><th>{t('tm.payout')}</th><th /></tr>
       </thead>
       <tbody>
         {rows.map((h) => {
@@ -385,12 +397,12 @@ export function OptionPositionsTable({ rows, symbols, onSell, onRedeem, busy }: 
               <td>{fmtPrice(h.strike)}</td>
               <td>{fmtUsd(h.cap)}</td>
               <td>{fmtExpiry(h.expiry)}</td>
-              <td className={h.settled ? 'gold' : expired ? 'muted' : ''}>{h.settled ? `Settled @ ${fmtPrice(h.settlementPrice)}` : expired ? 'Awaiting settlement' : 'Open'}</td>
+              <td className={h.settled ? 'gold' : expired ? 'muted' : ''}>{h.settled ? t('tm.settledAt', { price: fmtPrice(h.settlementPrice) }) : t(expired ? 'tm.awaitingSettlement' : 'tm.openStatus')}</td>
               <td className={payout > 0 ? 'up' : ''}>{h.settled ? fmtUsd(payout) : '—'}</td>
               <td>
                 {h.settled
-                  ? <button type="button" className="tm-mini" disabled={busy} onClick={() => onRedeem(h)}>Redeem</button>
-                  : !expired && <button type="button" className="tm-mini danger" disabled={busy} onClick={() => onSell(h)}>Sell</button>}
+                  ? <button type="button" className="tm-mini" disabled={busy} onClick={() => onRedeem(h)}>{t('tm.redeem')}</button>
+                  : !expired && <button type="button" className="tm-mini danger" disabled={busy} onClick={() => onSell(h)}>{t('tm.sell')}</button>}
               </td>
             </tr>
           );
@@ -401,22 +413,23 @@ export function OptionPositionsTable({ rows, symbols, onSell, onRedeem, busy }: 
 }
 
 export function HistoryTable({ rows, explorer, error }: { rows: HistoryRow[] | undefined; explorer?: string; error?: Error | null }) {
+  const t = useT();
   const unit = useCollateralSymbol();
-  if (error && !rows) return <div className="tm-empty"><b>History unavailable</b>{error.message.split('\n')[0]}</div>;
-  if (!rows) return <div className="tm-empty">Loading history…</div>;
-  if (!rows.length) return <div className="tm-empty">No activity yet.</div>;
+  if (error && !rows) return <div className="tm-empty"><b>{t('tm.historyUnavailable')}</b>{error.message.split('\n')[0]}</div>;
+  if (!rows) return <div className="tm-empty">{t('tm.loadingHistory')}</div>;
+  if (!rows.length) return <div className="tm-empty">{t('tm.noActivity')}</div>;
   return (
     <table className="tm-table">
-      <thead><tr><th className="l">Type</th><th className="l">Market</th><th className="l">Detail</th><th>{unit}</th><th>Block</th><th>Tx</th></tr></thead>
+      <thead><tr><th className="l">{t('tm.type')}</th><th className="l">{t('tm.market')}</th><th className="l">{t('tm.detail')}</th><th>{unit}</th><th>{t('tm.block')}</th><th>{t('tm.tx')}</th></tr></thead>
       <tbody>
         {rows.map((r) => (
           <tr key={`${r.hash}-${r.kind}-${r.market}`}>
-            <td className="l">{r.kind}</td>
-            <td className="l"><b>{r.market}</b></td>
-            <td className="l muted">{r.detail}</td>
+            <td className="l">{t(KIND_KEY[r.kind])}</td>
+            <td className="l"><b>{r.market === 'Vault' ? t('tm.view.vault') : r.market}</b></td>
+            <td className="l muted">{historyDetail(t, r.detail)}</td>
             <td className={r.transfer ? '' : tone(r.amount)}>{r.amount > 0 ? '+' : ''}{fmtUsd(r.amount)}</td>
             <td className="dim">{r.block.toString()}</td>
-            <td>{explorer ? <a className="tm-link" href={`${explorer}/tx/${r.hash}`} target="_blank" rel="noreferrer">View ↗</a> : r.hash.slice(0, 10)}</td>
+            <td>{explorer ? <a className="tm-link" href={`${explorer}/tx/${r.hash}`} target="_blank" rel="noreferrer">{t('tm.viewLink')}</a> : r.hash.slice(0, 10)}</td>
           </tr>
         ))}
       </tbody>
@@ -454,26 +467,27 @@ export function TradeCenter({ symbol, product, quote, perp, state, selected, onP
   onSwitchTestnet: () => void;
   network: string;
 }) {
+  const { t, lang } = useI18n();
   const asset = findAsset(symbol);
   const { data: chain } = useOptionChain(product === 'options' ? symbol : undefined);
   const symbols = state?.assets.map((a) => a.symbol) ?? [];
-  const sessionOpenMsg = asset ? closedMessage(asset.board) : '';
+  const sessionOpenMsg = asset ? closedMessage(asset.board, t, lang) : '';
   const exchangeOpen = chain?.sessionOpen ?? true;
   const { theme } = useTheme();
 
   return (
-    <section className="tm-center tm-col" aria-label="Market">
+    <section className="tm-center tm-col" aria-label={t('tm.marketSection')}>
       <StatsBar symbol={symbol} product={product} quote={quote} perp={perp} chainIv={chain?.iv} source={priceSource(network as NetworkKey, state ? !!state.perps.some((m) => m.assetSymbol === symbol) : symbol === 'BABA')} />
       {!deployed && (
         <div className="tm-banner">
           {network === 'mainnet'
-            ? 'HanMarket opens on Robinhood Chain mainnet at launch. Prices and charts are live; trading runs on testnet.'
-            : 'HanMarket is not deployed on Robinhood Chain testnet yet, so trading is disabled. Prices and charts are live.'}
-          {network === 'mainnet' && <button type="button" onClick={onSwitchTestnet}>Switch to Testnet</button>}
+            ? t('tm.bannerMainnet')
+            : t('tm.bannerTestnet')}
+          {network === 'mainnet' && <button type="button" onClick={onSwitchTestnet}>{t('tm.switchTestnet')}</button>}
         </div>
       )}
       {deployed && product === 'perps' && perp && !perp.tradingOpen && (
-        <div className="tm-banner info">{perp.symbol} is closed until the next US session (Mon 04:00 – Fri 20:00 New York). Margin can still be added.</div>
+        <div className="tm-banner info">{t('tm.perpClosedBanner', { symbol: perp.symbol })}</div>
       )}
       {deployed && product === 'options' && !exchangeOpen && <div className="tm-banner info">{sessionOpenMsg}</div>}
 
@@ -486,19 +500,19 @@ export function TradeCenter({ symbol, product, quote, perp, state, selected, onP
         <div className="tm-bottom-h">
           {/* choosing a tab also opens the panel, so a folded panel never swallows a click */}
           <div className="tm-tabs" role="tablist">
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'chain'} title="Options chain ( C )" onClick={() => { setBottom('chain'); setPanel('bottom', true); }}>{symbol} · Options Chain</button>
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'flow'} title="Options flow ( F )" onClick={() => { setBottom('flow'); setPanel('bottom', true); }}>Options Flow</button>
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'funding'} title="Funding and open interest ( U )" onClick={() => { setBottom('funding'); setPanel('bottom', true); }}>Funding &amp; OI</button>
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'positions'} title="Perpetual positions ( P )" onClick={() => { setBottom('positions'); setPanel('bottom', true); }}>Positions{positions?.length ? ` (${positions.length})` : ''}</button>
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'options'} title="Option positions ( O )" onClick={() => { setBottom('options'); setPanel('bottom', true); }}>Options{holdings?.length ? ` (${holdings.length})` : ''}</button>
-            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'history'} title="History ( H )" onClick={() => { setBottom('history'); setPanel('bottom', true); }}>History</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'chain'} title={`${t('tm.tab.chainTitle')} ( C )`} onClick={() => { setBottom('chain'); setPanel('bottom', true); }}>{t('tm.tab.chain', { symbol })}</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'flow'} title={`${t('tm.tab.flowTitle')} ( F )`} onClick={() => { setBottom('flow'); setPanel('bottom', true); }}>{t('tm.tab.flow')}</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'funding'} title={`${t('tm.tab.fundingTitle')} ( U )`} onClick={() => { setBottom('funding'); setPanel('bottom', true); }}>{t('tm.tab.funding')}</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'positions'} title={`${t('tm.tab.positionsTitle')} ( P )`} onClick={() => { setBottom('positions'); setPanel('bottom', true); }}>{t('tm.tab.positions')}{positions?.length ? ` (${positions.length})` : ''}</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'options'} title={`${t('tm.tab.optionsTitle')} ( O )`} onClick={() => { setBottom('options'); setPanel('bottom', true); }}>{t('tm.tab.options')}{holdings?.length ? ` (${holdings.length})` : ''}</button>
+            <button type="button" role="tab" className="tm-tab" aria-selected={bottom === 'history'} title={`${t('tm.history')} ( H )`} onClick={() => { setBottom('history'); setPanel('bottom', true); }}>{t('tm.history')}</button>
           </div>
           <button
             type="button"
             className="tm-fold"
             aria-expanded={panels.bottom}
-            aria-label={panels.bottom ? 'Collapse the bottom panel' : 'Expand the bottom panel'}
-            title={`${panels.bottom ? 'Collapse' : 'Expand'} the bottom panel ( B )`}
+            aria-label={t(panels.bottom ? 'tm.collapseBottom' : 'tm.expandBottom')}
+            title={`${t(panels.bottom ? 'tm.collapseBottom' : 'tm.expandBottom')} ( B )`}
             onClick={() => setPanel('bottom')}
           >
             <span className="tm-fold-icon"><IconChevron /></span>
@@ -509,7 +523,7 @@ export function TradeCenter({ symbol, product, quote, perp, state, selected, onP
             {bottom === 'chain' && <OptionChainTable symbol={symbol} selected={selected} onPick={onPick} />}
             {bottom === 'funding' && <PerpStatsTable perps={state?.perps} symbol={symbol} onPick={onPickPerp} />}
             {bottom === 'flow' && <OptionsFlow state={state} symbol={symbol} account={account} explorer={explorer} deployed={deployed} />}
-            {(bottom === 'positions' || bottom === 'options' || bottom === 'history') && !account && <div className="tm-empty"><b>Wallet not connected</b>Connect your wallet to see your positions and history.</div>}
+            {(bottom === 'positions' || bottom === 'options' || bottom === 'history') && !account && <div className="tm-empty"><b>{t('tm.walletNotConnected')}</b>{t('tm.connectToSee')}</div>}
             {bottom === 'positions' && account && <PerpPositionsTable rows={positions} onClose={onClosePerp} busy={busy} marketOpen={(id) => !!state?.perps.find((m) => m.id === id)?.tradingOpen} />}
             {bottom === 'options' && account && <OptionPositionsTable rows={holdings} symbols={symbols} onSell={onSellOption} onRedeem={onRedeem} busy={busy} />}
             {bottom === 'history' && account && <HistoryTable rows={history} explorer={explorer} error={historyError} />}

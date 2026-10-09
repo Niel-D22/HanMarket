@@ -170,8 +170,9 @@
 /* the terminal's top bar is full: the numeral names the track there, and the tooltip gives the rest */
 .cn-terminal .cn-track-title { display: none; }
 
-/* What fits in the landing bar beside the links, theme switch, X and Launch App, by width (measured with the player
-   open). Below 1100px the bar switches to logo + menu (Navbar.css), and the menu carries the full player. */
+/* What fits in the landing bar beside the links, language switch, theme switch, X and Launch App, by width (measured
+   with the player open). Below 1140px the bar switches to logo + menu (Navbar.css), and the menu carries the full
+   clock, player and language list. */
 @media (max-width: 1599px) {
   .cn-landing .cn-track-title { display: none; }
 }
@@ -179,16 +180,14 @@
   .cn-landing .cn-city { display: none; }
   .cn-landing.cn-clock { padding: 0 0.7rem; }
 }
-@media (min-width: 1101px) and (max-width: 1279px) {
-  .cn-landing.cn-clock,
+@media (min-width: 1141px) and (max-width: 1365px) {
+  .cn-landing.cn-clock { display: none; }
+}
+@media (max-width: 1279px) {
   .cn-landing .cn-track,
   .cn-landing .cn-next { display: none; }
 }
 @media (max-width: 900px) {
-  .cn-landing .cn-track,
-  .cn-landing .cn-next { display: none; }
-}
-@media (max-width: 760px) {
   .cn-landing.cn-clock { display: none; }
 }
 /* the smallest phones: the bar is wordmark, theme, X and menu; the player is in the menu */
@@ -200,4 +199,9 @@
    terminal.css, and its own display rules would otherwise win */
 @media (max-width: 1000px) {
   .cn-terminal.tm-desk-only { display: none; }
+}
+/* with the language switch in the terminal bar as well, the wallet button ran 64px past the edge at 1001px and
+   fit again from 1100px (measured), so the clock leaves the terminal bar for that band */
+@media (max-width: 1100px) {
+  .cn-terminal.cn-clock { display: none; }
 }

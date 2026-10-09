@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { WALLETCONNECT_ENABLED } from '../providers/WalletContextProvider';
+import { useT } from '../i18n';
 
 /**
  * A phone browser with no wallet inside it (Safari or Chrome on an iPhone, most Android browsers). Wallets there live
@@ -20,6 +21,7 @@ const WALLETS = [
 ];
 
 export function OpenInWallet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -34,19 +36,18 @@ export function OpenInWallet({ open, onClose }: { open: boolean; onClose: () => 
     <div className="tm-modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="tm-modal tm-wallet-app" role="dialog" aria-modal="true" aria-labelledby="tm-wa-title">
         <div className="tm-modal-h">
-          <b id="tm-wa-title">Open HanMarket in your wallet</b>
-          <button ref={closeRef} type="button" className="tm-link" onClick={onClose}>Close</button>
+          <b id="tm-wa-title">{t('tm.openInWalletTitle')}</b>
+          <button ref={closeRef} type="button" className="tm-link" onClick={onClose}>{t('tm.dismiss')}</button>
         </div>
         <p className="tm-note" style={{ marginTop: 0 }}>
-          This browser has no wallet in it. On a phone, open HanMarket inside your wallet app instead: it opens this page
-          in the app's own browser, where you can connect and trade.
+          {t('tm.openInWalletBody')}
         </p>
         <div className="tm-wallet-app-list">
           {WALLETS.map((w) => (
-            <a key={w.name} className="tm-cta neutral" href={w.href()} rel="noopener">Open in {w.name}</a>
+            <a key={w.name} className="tm-cta neutral" href={w.href()} rel="noopener">{t('tm.openIn', { name: w.name })}</a>
           ))}
         </div>
-        <p className="tm-note">No wallet app yet? Install MetaMask from the App Store, then come back to this page.</p>
+        <p className="tm-note">{t('tm.noWalletApp')}</p>
       </div>
     </div>
   );

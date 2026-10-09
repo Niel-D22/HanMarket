@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { isMarketOpen } from '../utils/marketHours';
+import { useT } from '../i18n';
 import './ChinaClock.css';
 
 /* Beijing time in the navigation bar, with the music switch beside it.
@@ -33,14 +34,15 @@ export function ChinaClock({ variant = 'landing', className = '' }: { variant?: 
   }, []);
 
   const open = isMarketOpen('HK', now);
+  const t = useT();
   return (
     <div
       className={`cn-clock cn-${variant} ${className}`}
-      title={`Beijing time (UTC+8). Hong Kong exchange ${open ? 'in session' : 'closed'} (holidays not shown).`}
+      title={t('clock.tooltip', { state: t(open ? 'clock.inSession' : 'clock.closed') })}
     >
       <span className={`cn-dot ${open ? 'is-open' : ''}`} aria-hidden="true" />
       <time className="cn-time" dateTime={now.toISOString()}>{BEIJING.format(now)}</time>
-      <span className="cn-city">BEIJING</span>
+      <span className="cn-city">{t('clock.city')}</span>
     </div>
   );
 }
@@ -167,6 +169,7 @@ export function MusicToggle({ variant = 'landing', className = '' }: { variant?:
   const on = useSyncExternalStore(subscribe, () => playing);
   const count = useSyncExternalStore(subscribe, () => available?.length ?? 0);
   const index = useSyncExternalStore(subscribe, () => current);
+  const t = useT();
   if (!count) return null;
   const track = TRACKS[index];
   return (
@@ -175,8 +178,8 @@ export function MusicToggle({ variant = 'landing', className = '' }: { variant?:
         type="button"
         className="cn-music"
         aria-pressed={on}
-        aria-label={on ? 'Pause the music' : 'Play the music'}
-        title={on ? 'Pause the music' : 'Play the music'}
+        aria-label={t(on ? 'music.pause' : 'music.play')}
+        title={t(on ? 'music.pause' : 'music.play')}
         onClick={toggleMusic}
       >
         {on ? (
@@ -196,7 +199,7 @@ export function MusicToggle({ variant = 'landing', className = '' }: { variant?:
             <span className="cn-track-title">{track.title}</span>
           </span>
           {count > 1 && (
-            <button type="button" className="cn-next" aria-label="Next track" title="Next track" onClick={nextTrack}>
+            <button type="button" className="cn-next" aria-label={t('music.next')} title={t('music.next')} onClick={nextTrack}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M5 5.5v13a1 1 0 0 0 1.5.86L16 13.7V18a1 1 0 0 0 2 0V6a1 1 0 0 0-2 0v4.3L6.5 4.64A1 1 0 0 0 5 5.5z" />
               </svg>

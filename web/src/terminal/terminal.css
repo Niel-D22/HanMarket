@@ -495,6 +495,18 @@ table.tm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 @media (max-width: 1000px) { .tm-desk-only { display: none; } }
 /* the phone top bar (menu, mark, theme, network, wallet) already fills 390px; the X link stays on the landing page there */
 @media (max-width: 520px) { .tm-x { display: none; } }
+/* the network names on narrow bars: the same words in most languages, a shorter pair where they run long (Japanese) */
+.tm-net-short { display: none; }
+@media (max-width: 600px) {
+  .tm-net-full { display: none; }
+  .tm-net-short { display: inline; }
+}
+/* 360px phones: the bar ran 25px over even in English (measured), so the wallet button drops its icon */
+@media (max-width: 380px) {
+  .tm-top, .tm-top-right { gap: 6px; }
+  .tm-wallet { padding: 0 10px; }
+  .tm-wallet svg { display: none; }
+}
 
 /* ---------------------------------------------------------------- collapsible panels */
 @media (min-width: 1281px) {

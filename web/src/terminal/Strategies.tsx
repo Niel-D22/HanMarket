@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ASSETS } from '../data/assets';
 import { useOptionChain, type ChainSide, type SelectedOption } from './options';
 import { fmtExpiry, fmtPrice, fmtUsd, type Fees } from './protocol';
+import { rich, useT, type MsgKey } from '../i18n';
 
 // Strategy builder: combine options on one underlying and see the payoff at expiry, the cost, the break-evens and the
 // combined greeks before trading. Every leg is bought: the vault is the only option writer on HanMarket, so a strategy
@@ -9,11 +10,11 @@ import { fmtExpiry, fmtPrice, fmtUsd, type Fees } from './protocol';
 // already capped, which is what a spread does, and the payoff below includes that cap.
 
 type StrategyId = 'long-call' | 'long-put' | 'straddle' | 'strangle';
-const STRATEGIES: { id: StrategyId; name: string; text: string }[] = [
-  { id: 'long-call', name: 'Long call', text: 'Buy a call. Profits if the price rises above the strike plus the premium, up to the cap.' },
-  { id: 'long-put', name: 'Long put', text: 'Buy a put. Profits if the price falls below the strike minus the premium, up to the cap.' },
-  { id: 'straddle', name: 'Straddle', text: 'Buy a call and a put at one strike. Profits from a big move either way.' },
-  { id: 'strangle', name: 'Strangle', text: 'Buy an out-of-the-money put and call. Cheaper than a straddle, needs a bigger move.' },
+const STRATEGIES: { id: StrategyId; name: MsgKey; text: MsgKey }[] = [
+  { id: 'long-call', name: 'tm.strat.longCall.name', text: 'tm.strat.longCall.text' },
+  { id: 'long-put', name: 'tm.strat.longPut.name', text: 'tm.strat.longPut.text' },
+  { id: 'straddle', name: 'tm.strat.straddle.name', text: 'tm.strat.straddle.text' },
+  { id: 'strangle', name: 'tm.strat.strangle.name', text: 'tm.strat.strangle.text' },
 ];
 
 interface Leg { isCall: boolean; strike: number; side: ChainSide }
@@ -26,6 +27,7 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
   fees?: Fees;
   onTradeLeg: (o: SelectedOption) => void;
 }) {
+  const t = useT();
   const [underlying, setUnderlying] = useState(symbol);
   const [expiryIdx, setExpiryIdx] = useState(0);
   const [strategy, setStrategy] = useState<StrategyId>('straddle');
@@ -87,7 +89,7 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
     <label className="tm-field">
       <span>{label}</span>
       <select value={value ?? ''} onChange={(e) => set(Number(e.target.value))}>
-        {strikes.map((k) => <option key={k} value={k}>{+k.toFixed(4)}{k === atm ? ' (ATM)' : ''}</option>)}
+        {strikes.map((k) => <option key={k} value={k}>{+k.toFixed(4)}{k === atm ? ` ${t('tm.atm')}` : ''}</option>)}
       </select>
     </label>
   );
@@ -95,59 +97,59 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
   return (
     <div className="tm-view">
       <div>
-        <h1>Strategies</h1>
-        <p>Build a position from several options and see its payoff at expiry, cost and break-even before you trade.</p>
+        <h1>{t('tm.view.strategies')}</h1>
+        <p>{t('tm.strategiesLead')}</p>
       </div>
       <div className="tm-panel" style={{ padding: 16 }}>
         <div className="tm-fields">
           <label className="tm-field">
-            <span>Underlying</span>
+            <span>{t('tm.underlying')}</span>
             <select value={underlying} onChange={(e) => { setUnderlying(e.target.value); setExpiryIdx(0); }}>
               {ASSETS.map((a) => <option key={a.symbol} value={a.symbol}>{a.symbol} · {a.name}</option>)}
             </select>
           </label>
           <label className="tm-field">
-            <span>Expiry</span>
+            <span>{t('tm.expiry')}</span>
             <select value={expiryIdx} onChange={(e) => setExpiryIdx(Number(e.target.value))} disabled={!data?.expiries.length}>
               {data?.expiries.map((e, i) => <option key={e.expiry} value={i}>{fmtExpiry(e.expiry)}</option>)}
             </select>
           </label>
           <label className="tm-field">
-            <span>Strategy</span>
+            <span>{t('tm.strategy')}</span>
             <select value={strategy} onChange={(e) => setStrategy(e.target.value as StrategyId)}>
-              {STRATEGIES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {STRATEGIES.map((s) => <option key={s.id} value={s.id}>{t(s.name)}</option>)}
             </select>
           </label>
           <label className="tm-field">
-            <span>Units</span>
+            <span>{t('tm.units')}</span>
             <input type="number" min={1} step={1} value={units} onChange={(e) => setUnits(Math.max(1, Math.floor(Number(e.target.value) || 1)))} />
           </label>
           {strategy === 'strangle'
-            ? <>{select('Put strike', putStrike, setPutStrike)}{select('Call strike', callStrike, setCallStrike)}</>
-            : select('Strike', strike, setStrike)}
+            ? <>{select(t('tm.putStrike'), putStrike, setPutStrike)}{select(t('tm.callStrike'), callStrike, setCallStrike)}</>
+            : select(t('tm.strike'), strike, setStrike)}
         </div>
-        <p className="tm-note">{STRATEGIES.find((s) => s.id === strategy)?.text}</p>
+        <p className="tm-note">{t(STRATEGIES.find((s) => s.id === strategy)!.text)}</p>
 
-        {isLoading && <div className="tm-empty">Loading option chain…</div>}
-        {error && <div className="tm-empty"><b>Option chain unavailable</b>{(error as Error).message}</div>}
-        {data && !data.expiries.length && <div className="tm-empty"><b>No open series for {underlying}</b>New weekly expiries are listed by the keeper.</div>}
-        {exp && !complete && <div className="tm-empty"><b>No price for every leg right now</b>Pick another strike or expiry.</div>}
+        {isLoading && <div className="tm-empty">{t('tm.loadingChain')}</div>}
+        {error && <div className="tm-empty"><b>{t('tm.chainUnavailable')}</b>{(error as Error).message}</div>}
+        {data && !data.expiries.length && <div className="tm-empty"><b>{t('tm.noSeries', { symbol: underlying })}</b>{t('tm.keeperListsWeekly')}</div>}
+        {exp && !complete && <div className="tm-empty"><b>{t('tm.noLegPrice')}</b>{t('tm.noLegPriceBody')}</div>}
 
         {exp && complete && (
           <>
             <div className="tm-kpis" style={{ marginTop: 14 }}>
-              <div className="tm-kpi"><span>Net premium (incl. fee)</span><b>{fmtUsd(cost)}</b></div>
-              <div className="tm-kpi"><span>Max profit</span><b className="up">{fmtUsd(maxProfit)}</b></div>
-              <div className="tm-kpi"><span>Max loss</span><b className="down">{fmtUsd(maxLoss)}</b></div>
-              <div className="tm-kpi"><span>Break-even</span><b>{breakEvens.length ? breakEvens.map((b) => fmtPrice(b)).join(' · ') : '—'}</b></div>
+              <div className="tm-kpi"><span>{t('tm.netPremium')}</span><b>{fmtUsd(cost)}</b></div>
+              <div className="tm-kpi"><span>{t('tm.maxProfit')}</span><b className="up">{fmtUsd(maxProfit)}</b></div>
+              <div className="tm-kpi"><span>{t('tm.maxLossLc')}</span><b className="down">{fmtUsd(maxLoss)}</b></div>
+              <div className="tm-kpi"><span>{t('tm.breakEvenLc')}</span><b>{breakEvens.length ? breakEvens.map((b) => fmtPrice(b)).join(' · ') : '—'}</b></div>
             </div>
             <PayoffChart payoff={payoff} lo={lo} hi={hi} spot={spot} breakEvens={breakEvens} />
             <table className="tm-table" style={{ marginTop: 10 }}>
-              <thead><tr><th className="l">Leg</th><th>Strike</th><th>Cap</th><th>Units</th><th>Ask</th><th>IV</th><th>Delta</th><th /></tr></thead>
+              <thead><tr><th className="l">{t('tm.leg')}</th><th>{t('tm.strike')}</th><th>{t('tm.cap')}</th><th>{t('tm.units')}</th><th>{t('tm.ask')}</th><th>IV</th><th>Delta</th><th /></tr></thead>
               <tbody>
                 {legs.map((l) => (
                   <tr key={`${l.isCall}-${l.strike}`}>
-                    <td className="l"><span className="up">Buy</span> {l.isCall ? 'call' : 'put'}</td>
+                    <td className="l"><span className="up">{t('tm.buy')}</span> {t(l.isCall ? 'tm.callLc' : 'tm.putLc')}</td>
                     <td>{fmtPrice(l.strike)}</td>
                     <td>{fmtUsd(l.side.cap)}</td>
                     <td>{units}</td>
@@ -163,7 +165,7 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
                           cap: l.side.cap, side: 'buy', bid: l.side.bid, ask: l.side.ask, iv: l.side.iv, delta: l.side.delta,
                         })}
                       >
-                        Trade leg
+                        {t('tm.tradeLeg')}
                       </button>
                     </td>
                   </tr>
@@ -173,13 +175,13 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
             <div className="tm-kpis" style={{ marginTop: 12 }}>
               <div className="tm-kpi"><span>Delta</span><b>{greeks.delta.toFixed(2)}</b></div>
               <div className="tm-kpi"><span>Gamma</span><b>{greeks.gamma.toFixed(4)}</b></div>
-              <div className="tm-kpi"><span>Theta / day</span><b>{greeks.theta.toFixed(3)}</b></div>
-              <div className="tm-kpi"><span>Vega / vol pt</span><b>{greeks.vega.toFixed(3)}</b></div>
+              <div className="tm-kpi"><span>{t('tm.thetaDay')}</span><b>{greeks.theta.toFixed(3)}</b></div>
+              <div className="tm-kpi"><span>{t('tm.vegaPt')}</span><b>{greeks.vega.toFixed(3)}</b></div>
             </div>
             <p className="tm-note">
-              At {fmtPrice(spot)} today the strategy would return <span className={payoff(spot) >= 0 ? 'up' : 'down'}>{fmtUsd(payoff(spot))}</span> if it
-              expired now. Each leg opens separately from the option ticket (“Trade leg”), at a fresh signed quote. Only bought legs are
-              shown: the vault is the only option writer, so a strategy that sells an option you do not hold cannot be traded here.
+              {rich(t('tm.stratNote', { spot: fmtPrice(spot), value: fmtUsd(payoff(spot)) }), {
+                tone: (s) => <span className={payoff(spot) >= 0 ? 'up' : 'down'}>{s}</span>,
+              })}
             </p>
           </>
         )}
@@ -189,6 +191,7 @@ export function StrategiesView({ symbol, fees, onTradeLeg }: {
 }
 
 function PayoffChart({ payoff, lo, hi, spot, breakEvens }: { payoff: (s: number) => number; lo: number; hi: number; spot: number; breakEvens: number[] }) {
+  const t = useT();
   const W = 760, H = 240, P = 28;
   const N = 160;
   const pts = Array.from({ length: N + 1 }, (_, i) => { const s = lo + ((hi - lo) * i) / N; return [s, payoff(s)] as const; });
@@ -200,7 +203,7 @@ function PayoffChart({ payoff, lo, hi, spot, breakEvens }: { payoff: (s: number)
   const line = pts.map(([s, v], i) => `${i ? 'L' : 'M'}${x(s).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const area = `${line} L${x(hi).toFixed(1)},${y(0).toFixed(1)} L${x(lo).toFixed(1)},${y(0).toFixed(1)} Z`;
   return (
-    <svg className="tm-payoff" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Payoff at expiry" preserveAspectRatio="none">
+    <svg className="tm-payoff" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('tm.payoffAria')} preserveAspectRatio="none">
       <defs>
         <clipPath id="tm-pay-up"><rect x="0" y="0" width={W} height={y(0)} /></clipPath>
         <clipPath id="tm-pay-down"><rect x="0" y={y(0)} width={W} height={H - y(0)} /></clipPath>
@@ -210,7 +213,7 @@ function PayoffChart({ payoff, lo, hi, spot, breakEvens }: { payoff: (s: number)
       <line x1={P} x2={W - P} y1={y(0)} y2={y(0)} className="axis" />
       <path d={line} className="curve" />
       <line x1={x(spot)} x2={x(spot)} y1={P / 2} y2={H - P / 2} className="spot" />
-      <text x={x(spot) + 4} y={P / 2 + 10} className="label">now {fmtPrice(spot)}</text>
+      <text x={x(spot) + 4} y={P / 2 + 10} className="label">{t('tm.nowAt', { price: fmtPrice(spot) })}</text>
       {breakEvens.map((b) => <circle key={b} cx={x(b)} cy={y(0)} r={3.5} className="be" />)}
       <text x={P} y={H - 6} className="label">{fmtPrice(lo)}</text>
       <text x={W - P} y={H - 6} className="label" textAnchor="end">{fmtPrice(hi)}</text>

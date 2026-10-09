@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fmtCompact, fmtPrice, type PerpMarket } from './protocol';
+import { useT } from '../i18n';
 
 // Funding & open interest across every perp market: what a position will pay or earn next, and how crowded each side
 // is against its cap. Read from the same protocol state as the rest of the terminal (RiskManager + PerpsEngine).
@@ -12,24 +13,24 @@ export function PerpStatsTable({ perps, symbol, onPick }: {
   symbol: string;
   onPick: (assetSymbol: string) => void;
 }) {
+  const t = useT();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
-    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(timer);
   }, []);
-  if (!perps?.length) return <div className="tm-empty">No perpetual markets on this network yet.</div>;
+  if (!perps?.length) return <div className="tm-empty">{t('tm.noPerpsHere')}</div>;
 
   return (
     <>
       <div className="tm-note" style={{ margin: '10px 16px 0' }}>
-        Funding is paid every hour by the side with more open interest to the other, so a positive rate means longs pay.
-        Open interest is shown against each side’s cap; a full side refuses new positions on that side.
+        {t('tm.fundingExplain')}
       </div>
       <table className="tm-table">
         <thead>
           <tr>
-            <th className="l">Market</th><th>Index</th><th>Funding / 1h</th><th>Longs pay (annual)</th><th>Next funding</th>
-            <th>Long OI</th><th>Short OI</th><th className="l">Skew</th><th>Max leverage</th><th className="l">Status</th>
+            <th className="l">{t('tm.market')}</th><th>{t('tm.index')}</th><th>{t('tm.fundingHour')}</th><th>{t('tm.longsPay')}</th><th>{t('tm.nextFundingLc')}</th>
+            <th>{t('tm.longOi')}</th><th>{t('tm.shortOi')}</th><th className="l">{t('tm.skew')}</th><th>{t('tm.maxLeverageLc')}</th><th className="l">{t('tm.status')}</th>
           </tr>
         </thead>
         <tbody>
@@ -48,12 +49,12 @@ export function PerpStatsTable({ perps, symbol, onPick }: {
                 <td>{fmtCompact(m.longOi)} <span className="dim">/ {fmtCompact(cap)}</span></td>
                 <td>{fmtCompact(m.shortOi)} <span className="dim">/ {fmtCompact(cap)}</span></td>
                 <td className="l">
-                  <span className="tm-skew" title={total > 0 ? `${(longShare * 100).toFixed(0)}% long` : 'No open interest'}>
+                  <span className="tm-skew" title={total > 0 ? t('tm.pctLong', { n: (longShare * 100).toFixed(0) }) : t('tm.noOi')}>
                     <i className="l" style={{ width: `${longShare * 100}%` }} />
                   </span>
                 </td>
                 <td>{m.risk.maxLeverage}x</td>
-                <td className="l"><span className={`tm-pill ${m.tradingOpen ? 'open' : 'closed'}`}>{m.tradingOpen ? 'OPEN' : 'CLOSED'}</span></td>
+                <td className="l"><span className={`tm-pill ${m.tradingOpen ? 'open' : 'closed'}`}>{t(m.tradingOpen ? 'tm.OPEN' : 'tm.CLOSED')}</span></td>
               </tr>
             );
           })}

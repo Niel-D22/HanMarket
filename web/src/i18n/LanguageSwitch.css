@@ -1,0 +1,103 @@
+/* Language switch (LanguageSwitch.tsx), styled to sit beside the Beijing clock and the music player. */
+
+.ls { position: relative; flex-shrink: 0; }
+.ls-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 34px;
+  padding: 0 0.7rem 0 0.6rem;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: rgba(var(--hm-ink-c), 0.75);
+  font-family: 'Montserrat', 'Inter Tight', 'Noto Sans SC', sans-serif;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  border-radius: inherit;
+  transition: color 0.2s ease;
+}
+.ls-button:hover,
+.ls-button[aria-expanded='true'] { color: var(--hm-gold); }
+.ls-button:focus-visible { outline: 2px solid var(--hm-gold); outline-offset: 2px; }
+
+.ls-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  /* eleven languages: two columns keep the list short enough to open anywhere, a phone menu included */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 270px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--hm-line-c), 0.12);
+  background: var(--hm-card);
+  box-shadow: 0 18px 40px -18px rgba(var(--hm-shadow-c), 0.35);
+  animation: ls-open 0.18s ease;
+}
+.ls-list button {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--hm-text);
+}
+.ls-list button:hover { background: rgba(var(--hm-line-c), 0.06); }
+.ls-list button.is-current { color: var(--hm-red); font-weight: 600; }
+@keyframes ls-open {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ls-list { animation: none; } }
+
+/* landing bar and phone menu: hairline pill, like the clock beside it */
+.ls-landing,
+.ls-menu {
+  border: 1px solid rgba(var(--hm-line-c), 0.14);
+  border-radius: 999px;
+  background: rgba(var(--hm-bg-c), 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.ls-landing:hover { border-color: rgba(var(--hm-gold-c), 0.55); }
+/* in the phone menu the list spans the menu card (positioned against the card, not the button, which can sit
+   anywhere in the wrapped row), so its two columns never run off a 360px screen */
+.ls.ls-menu { position: static; }
+.ls-menu .ls-list { top: auto; left: 1rem; right: 1rem; min-width: 0; margin-top: 8px; }
+
+/* terminal: square, like its icon buttons (34px tall with the border) */
+.ls-terminal {
+  border: 1px solid var(--line-2, rgba(var(--hm-line-c), 0.12));
+  border-radius: 8px;
+  background: var(--panel-2, var(--hm-card));
+}
+.ls-terminal .ls-button { height: 32px; padding: 0 0.6rem 0 0.5rem; color: var(--muted); }
+.ls-terminal .ls-button:hover,
+.ls-terminal .ls-button[aria-expanded='true'] { color: var(--gold-2, var(--hm-gold)); }
+.ls-terminal .ls-list { background: var(--panel, var(--hm-card)); border-color: var(--line-2, rgba(var(--hm-line-c), 0.12)); }
+.ls-terminal .ls-list button { color: var(--text, var(--hm-text)); }
+.ls-terminal .ls-list button:hover { background: var(--panel-3, rgba(var(--hm-line-c), 0.06)); }
+/* the phone terminal bar (menu, mark, theme, network, wallet) is already full: there the switch sits in the side drawer */
+.tm-side-lang { display: none; }
+@media (max-width: 560px) {
+  .tm-top .ls-terminal { display: none; }
+  .tm-side-lang { display: block; padding: 12px 16px 4px; }
+  .tm-side-lang .ls-list { left: 0; right: auto; }
+}
+
+/* phones and small tablets: the bar is full (measured at 600px), the switch lives in the menu */
+@media (max-width: 640px) {
+  .ls-landing { display: none; }
+}

@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import type { EmblemScene } from "./emblemScene";
 import { CANVAS_SCALE } from "./constants";
 import { isCoarsePointer } from "../../utils/useMediaQuery";
+import { releaseWebGLWhenDetached } from "../../utils/webgl";
 
 /* ============================================================================
    The HanMarket coin's journey down the landing page.
@@ -314,6 +315,7 @@ export function CoinJourney({ delay, reduce }: {
       cleanups.forEach((fn) => fn());
       delete document.documentElement.dataset.coinLive;
       scene?.dispose();
+      releaseWebGLWhenDetached(canvas);
     };
   }, [delay, reduce]);
 

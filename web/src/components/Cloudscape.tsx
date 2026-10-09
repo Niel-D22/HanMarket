@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { releaseWebGLWhenDetached } from "../utils/webgl";
 
 /* ============================================================================
    Cloudscape: soft fbm-noise clouds drawn in a WebGL shader.
@@ -209,6 +210,7 @@ export function Cloudscape({
       gl.deleteProgram(program);
       gl.deleteShader(vs);
       gl.deleteShader(fs);
+      releaseWebGLWhenDetached(canvas);
     };
   }, [colorBottom, colorMid, colorTop, speed, fadeTop]);
 

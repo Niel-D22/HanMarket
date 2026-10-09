@@ -1,41 +1,42 @@
 import { useEffect, useRef } from 'react';
+import type { MsgKey } from '../i18n';
 
 // Keyboard navigation for the terminal: jump between the bottom panels, the views and the layout without
 // leaving the keys. Single keys only, and never while typing in a field or with a dialog (the wallet
 // picker, this help) open, so an amount typed into the order ticket can't trigger anything.
 
-export const SHORTCUT_GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = [
+export const SHORTCUT_GROUPS: { title: MsgKey; items: { keys: string[]; label: MsgKey }[] }[] = [
   {
-    title: 'Bottom panel',
+    title: 'tm.kb.bottomPanel',
     items: [
-      { keys: ['C'], label: 'Options chain' },
-      { keys: ['F'], label: 'Options flow' },
-      { keys: ['U'], label: 'Funding & open interest' },
-      { keys: ['P'], label: 'Perpetual positions' },
-      { keys: ['O'], label: 'Option positions' },
-      { keys: ['H'], label: 'History' },
+      { keys: ['C'], label: 'tm.tab.chainTitle' },
+      { keys: ['F'], label: 'tm.tab.flowTitle' },
+      { keys: ['U'], label: 'tm.kb.fundingOi' },
+      { keys: ['P'], label: 'tm.tab.positionsTitle' },
+      { keys: ['O'], label: 'tm.tab.optionsTitle' },
+      { keys: ['H'], label: 'tm.history' },
     ],
   },
   {
-    title: 'Views',
+    title: 'tm.kb.views',
     items: [
-      { keys: ['1'], label: 'Trade' },
-      { keys: ['2'], label: 'Markets' },
-      { keys: ['3'], label: 'Portfolio' },
-      { keys: ['4'], label: 'Vault' },
-      { keys: ['5'], label: 'Strategies' },
-      { keys: ['6'], label: 'Activity' },
-      { keys: ['/'], label: 'Search markets' },
+      { keys: ['1'], label: 'tm.view.trade' },
+      { keys: ['2'], label: 'tm.view.markets' },
+      { keys: ['3'], label: 'tm.view.portfolio' },
+      { keys: ['4'], label: 'tm.view.vault' },
+      { keys: ['5'], label: 'tm.view.strategies' },
+      { keys: ['6'], label: 'tm.view.activity' },
+      { keys: ['/'], label: 'tm.search' },
     ],
   },
   {
-    title: 'Layout',
+    title: 'tm.kb.layout',
     items: [
-      { keys: ['['], label: 'Show / hide the sidebar' },
-      { keys: [']'], label: 'Show / hide the order terminal' },
-      { keys: ['B'], label: 'Show / hide the bottom panel' },
-      { keys: ['T'], label: 'Show / hide recent trades' },
-      { keys: ['?'], label: 'This list' },
+      { keys: ['['], label: 'tm.kb.toggleSide' },
+      { keys: [']'], label: 'tm.kb.toggleOrder' },
+      { keys: ['B'], label: 'tm.kb.toggleBottom' },
+      { keys: ['T'], label: 'tm.kb.toggleTrades' },
+      { keys: ['?'], label: 'tm.kb.thisList' },
     ],
   },
 ];

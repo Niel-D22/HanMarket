@@ -14,6 +14,7 @@ import { Coverflow } from '../components/Coverflow';
 import { useTheme } from '../theme/ThemeProvider';
 import { FINE_POINTER, useMediaQuery } from '../utils/useMediaQuery';
 import { X_URL } from '../config/social';
+import { useI18n, useT, lines, type MsgKey } from '../i18n';
 // Open-source mono logos from web3icons (MIT), trimmed to head's markup: the chain and the L1 under it, the
 // settlement token and MetaMask. Arbitrum, Chainlink, WalletConnect and Rabby were removed as backend detail
 // that means little to a first-time visitor.
@@ -107,40 +108,37 @@ function MiniChart({ up = true, id = "hero" }: { up?: boolean; id?: string }) {
    That detail didn't disappear, it moved to Docs → Contract addresses, where the audience already wants
    it: someone about to verify the protocol, not someone deciding whether to try it. */
 function OptionsProductVisual() {
+  const t = useT();
   const cell = (k: string, v: string) => (
     <div key={k} style={{ textAlign: "center" }}>
       <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: TEXT }}>{v}</div>
       <div style={{ fontFamily: SANS, fontSize: 9.5, letterSpacing: "0.06em", color: "rgba(var(--hm-ink-c), 0.45)", marginTop: 3 }}>{k}</div>
     </div>
   );
-  return <div style={{ display: "flex", gap: 22 }}>{cell("STRIKE", "$480")}{cell("PREMIUM", "$12.40")}{cell("CAP", "$20")}</div>;
+  return <div style={{ display: "flex", gap: 22 }}>{cell(t("engines.strike"), "$480")}{cell(t("engines.premium"), "$12.40")}{cell(t("engines.cap"), "$20")}</div>;
 }
 
 function PerpsProductVisual() {
+  const t = useT();
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, color: TEXT }}>
-        10x <span style={{ fontSize: 12, color: "rgba(var(--hm-ink-c), 0.45)", fontWeight: 400, fontFamily: SANS }}>max leverage</span>
+        10x <span style={{ fontSize: 12, color: "rgba(var(--hm-ink-c), 0.45)", fontWeight: 400, fontFamily: SANS }}>{t("engines.maxLeverage")}</span>
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 12.5, color: RED, marginTop: 8 }}>Funding +0.0032% / 1h</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, color: RED, marginTop: 8 }}>{t("engines.funding", { rate: "+0.0032%" })}</div>
     </div>
   );
 }
 
-const PRODUCT_CARDS = [
-  {
-    label: "01", title: "Options", description: "Calls and puts on Tencent, Alibaba, BYD and more. Cash-settled in USDC. Every payout is capped, so a buyer can never win more than a seller can lose.",
-    visual: <OptionsProductVisual />, cta: "Trade options",
-  },
-  {
-    label: "02", title: "Perpetuals", description: "Leveraged long or short on BABA, Tencent, PDD and more, up to 10x, with no expiry. Funding between longs and shorts keeps the price honest.",
-    visual: <PerpsProductVisual />, cta: "Trade perpetuals",
-  },
+const productCards = (t: ReturnType<typeof useT>) => [
+  { key: "options", label: "01", title: t("engines.options.title"), description: t("engines.options.description"), visual: <OptionsProductVisual />, cta: t("engines.options.cta") },
+  { key: "perps", label: "02", title: t("engines.perps.title"), description: t("engines.perps.description"), visual: <PerpsProductVisual />, cta: t("engines.perps.cta") },
 ];
 
 /** The Protocol: one glowing spec panel, not a bento grid. It is deliberately a different shape from the
  * How It Works cards just above it, so the two sections don't read as the same component twice. */
 function ProtocolPanel() {
+  const t = useT();
   return (
     <BorderGlow
       borderRadius={28}
@@ -152,8 +150,8 @@ function ProtocolPanel() {
       style={{ maxWidth: 860, margin: "0 auto", overflow: "hidden", boxShadow: "0 40px 90px -34px rgba(var(--hm-shadow-c), 0.3)" }}
     >
       <div className="protocol-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
-        {PRODUCT_CARDS.map((c) => (
-          <div key={c.title} className="protocol-col" style={{ padding: "34px 26px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {productCards(t).map((c) => (
+          <div key={c.key} className="protocol-col" style={{ padding: "34px 26px", display: "flex", flexDirection: "column", gap: 14 }}>
             <span style={{ fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: "0.08em" }}>{c.label}</span>
             <div style={{ minHeight: 54, display: "flex", alignItems: "center" }}>{c.visual}</div>
             <h3 style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, margin: 0 }}>{c.title}</h3>
@@ -177,19 +175,21 @@ const chip: React.CSSProperties = {
 };
 
 function WalletVisual() {
+  const t = useT();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span style={chip}>MetaMask <span style={{ width: 6, height: 6, borderRadius: "50%", background: GAIN }} /></span>
-      <span style={{ ...chip, opacity: 0.6 }}>Robinhood Wallet</span>
+      <span style={{ ...chip, opacity: 0.6 }}>{t("visual.robinhoodWallet")}</span>
     </div>
   );
 }
 
 function DepositVisual() {
+  const t = useT();
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 600, color: TEXT, letterSpacing: "-0.02em" }}>10,000.00</div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: GOLD, marginTop: 2 }}>USDC · Robinhood Chain</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: GOLD, marginTop: 2 }}>{t("visual.depositChain")}</div>
     </div>
   );
 }
@@ -214,6 +214,7 @@ function MarketsVisual() {
 }
 
 function TicketVisual() {
+  const t = useT();
   const line = (k: string, v: string, accent = false) => (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0" }}>
       <span style={{ fontFamily: SANS, color: "rgba(var(--hm-ink-c), 0.55)" }}>{k}</span>
@@ -226,16 +227,16 @@ function TicketVisual() {
       background: "rgba(var(--hm-card-c), 0.88)", border: "1px solid rgba(var(--hm-line-c), 0.08)",
     }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-        <span style={{ ...chip, background: GRADIENT, color: "var(--hm-on-red)", border: "none", fontWeight: 700 }}>Buy Call</span>
-        <span style={chip}>Buy Put</span>
-        <span style={chip}>Sell</span>
+        <span style={{ ...chip, background: GRADIENT, color: "var(--hm-on-red)", border: "none", fontWeight: 700 }}>{t("visual.buyCall")}</span>
+        <span style={chip}>{t("visual.buyPut")}</span>
+        <span style={chip}>{t("visual.sell")}</span>
       </div>
-      {line("Market", "0700.HK")}
-      {line("Strike", "HK$480")}
-      {line("Expiry", "30 days")}
-      {line("Premium", "12.40 USDC", true)}
+      {line(t("visual.market"), "0700.HK")}
+      {line(t("visual.strike"), "HK$480")}
+      {line(t("visual.expiry"), t("visual.days", { n: 30 }))}
+      {line(t("visual.premium"), "12.40 USDC", true)}
       <div style={{ marginTop: 10, textAlign: "center", padding: "10px 0", borderRadius: 999, background: "var(--hm-solid)", color: "var(--hm-on-solid)", fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
-        Confirm in wallet
+        {t("visual.confirm")}
       </div>
     </div>
   );
@@ -253,10 +254,11 @@ function ExpiryVisual() {
 }
 
 function ReclaimVisual() {
+  const t = useT();
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: GAIN }}>+500.00</div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>USDC returned</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>{t("visual.usdcReturned")}</div>
     </div>
   );
 }
@@ -264,6 +266,7 @@ function ReclaimVisual() {
 /* ---------- perpetuals equivalents of the market/ticket/outcome visuals above ---------- */
 
 function PerpMarketVisual() {
+  const t = useT();
   return (
     <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{
@@ -274,14 +277,15 @@ function PerpMarketVisual() {
         <span style={{ fontFamily: MONO, fontSize: 13, color: GOLD }}>$118.20</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontFamily: MONO, color: "rgba(var(--hm-ink-c), 0.55)", padding: "0 4px" }}>
-        <span>Funding / 1h <span style={{ color: RED }}>+0.0032%</span></span>
-        <span>up to 10x</span>
+        <span>{t("visual.fundingHour")} <span style={{ color: RED }}>+0.0032%</span></span>
+        <span>{t("visual.upTo", { x: "10x" })}</span>
       </div>
     </div>
   );
 }
 
 function PerpTicketVisual() {
+  const t = useT();
   const line = (k: string, v: string, accent = false) => (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 0" }}>
       <span style={{ fontFamily: SANS, color: "rgba(var(--hm-ink-c), 0.55)" }}>{k}</span>
@@ -294,71 +298,70 @@ function PerpTicketVisual() {
       background: "rgba(var(--hm-card-c), 0.88)", border: "1px solid rgba(var(--hm-line-c), 0.08)",
     }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-        <span style={{ ...chip, background: GRADIENT, color: "var(--hm-on-red)", border: "none", fontWeight: 700 }}>Long</span>
-        <span style={chip}>Short</span>
+        <span style={{ ...chip, background: GRADIENT, color: "var(--hm-on-red)", border: "none", fontWeight: 700 }}>{t("visual.long")}</span>
+        <span style={chip}>{t("visual.short")}</span>
       </div>
-      {line("Market", "BABA-PERP")}
-      {line("Leverage", "10x")}
-      {line("Margin", "500 USDC")}
-      {line("Liq. price", "$106.10", true)}
+      {line(t("visual.market"), "BABA-PERP")}
+      {line(t("visual.leverage"), "10x")}
+      {line(t("visual.margin"), "500 USDC")}
+      {line(t("visual.liqPrice"), "$106.10", true)}
       <div style={{ marginTop: 10, textAlign: "center", padding: "10px 0", borderRadius: 999, background: "var(--hm-solid)", color: "var(--hm-on-solid)", fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
-        Confirm in wallet
+        {t("visual.confirm")}
       </div>
     </div>
   );
 }
 
 function FundingVisual() {
+  const t = useT();
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: RED }}>+0.0032%</div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 4 }}>Funding / 1h · next in 42m</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 4 }}>{t("visual.fundingNext", { m: 42 })}</div>
     </div>
   );
 }
 
 function ClosePositionVisual() {
+  const t = useT();
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: GAIN }}>+128.40</div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>USDC · position closed</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(var(--hm-ink-c), 0.5)", marginTop: 2 }}>{t("visual.positionClosed")}</div>
     </div>
   );
 }
 
 /* ---------- Options / Perpetuals toggle for the How It Works section ---------- */
 
-const OPTIONS_STEPS = [
-  { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
-  { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
-  {
-    label: "03", title: "Pick a market", description: "Hong Kong & China equity options, by strike and expiry.",
-    visual: <MarketsVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
-  },
-  {
-    label: "04", title: "Place the trade", description: "Buy a call or put, or sell one to earn the premium. You sign every trade.",
-    visual: <TicketVisual />, background: <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />,
-  },
-  { label: "05", title: "Redeem at expiry", description: "In the money? Redeem your USDC payout as soon as the market settles.", visual: <ExpiryVisual /> },
-  { label: "06", title: "Reclaim collateral", description: "Sellers take back unsold contracts and every dollar not owed to buyers.", visual: <ReclaimVisual /> },
+const PAPER_BG = <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />;
+const CLOUD_BG = <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />;
+
+type StepKey = "connect" | "deposit" | "pickOption" | "place" | "redeem" | "reclaim" | "pickPerp" | "open" | "funding" | "close";
+const step = (t: ReturnType<typeof useT>, label: string, key: StepKey, visual: React.ReactNode, background?: React.ReactNode) => ({
+  label, title: t(`how.${key}.title` as MsgKey), description: t(`how.${key}.description` as MsgKey), visual, ...(background ? { background } : {}),
+});
+
+const optionsSteps = (t: ReturnType<typeof useT>) => [
+  step(t, "01", "connect", <WalletVisual />),
+  step(t, "02", "deposit", <DepositVisual />),
+  step(t, "03", "pickOption", <MarketsVisual />, PAPER_BG),
+  step(t, "04", "place", <TicketVisual />, CLOUD_BG),
+  step(t, "05", "redeem", <ExpiryVisual />),
+  step(t, "06", "reclaim", <ReclaimVisual />),
 ];
 
-const PERPS_STEPS = [
-  { label: "01", title: "Connect a wallet", description: "MetaMask, Robinhood Wallet or any EVM wallet. No sign-up.", visual: <WalletVisual /> },
-  { label: "02", title: "Deposit USDC", description: "Every trade is priced and settled in USDC on Robinhood Chain.", visual: <DepositVisual /> },
-  {
-    label: "03", title: "Pick a market", description: "BABA-PERP or another of seven perp markets, priced off an onchain feed, up to 10x leverage.",
-    visual: <PerpMarketVisual />, background: <img src="/hero/bg-paper.webp" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "right center" }} />,
-  },
-  {
-    label: "04", title: "Open a position", description: "Go long or short with leverage. You sign every trade.",
-    visual: <PerpTicketVisual />, background: <img src="/hero/clouds-back.webp" alt="" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "70%", objectFit: "cover", objectPosition: "top center" }} />,
-  },
-  { label: "05", title: "Funding, not expiry", description: "No expiry date. Longs and shorts exchange funding every hour based on demand.", visual: <FundingVisual /> },
-  { label: "06", title: "Close anytime", description: "Close your position whenever you want, or get liquidated if your margin runs out.", visual: <ClosePositionVisual /> },
+const perpsSteps = (t: ReturnType<typeof useT>) => [
+  step(t, "01", "connect", <WalletVisual />),
+  step(t, "02", "deposit", <DepositVisual />),
+  step(t, "03", "pickPerp", <PerpMarketVisual />, PAPER_BG),
+  step(t, "04", "open", <PerpTicketVisual />, CLOUD_BG),
+  step(t, "05", "funding", <FundingVisual />),
+  step(t, "06", "close", <ClosePositionVisual />),
 ];
 
 function HowItWorksToggle({ product, onChange }: { product: "options" | "perps"; onChange: (p: "options" | "perps") => void }) {
+  const t = useT();
   const seg = (key: "options" | "perps", label: string) => (
     <button
       key={key}
@@ -377,12 +380,12 @@ function HowItWorksToggle({ product, onChange }: { product: "options" | "perps";
     </button>
   );
   return (
-    <div role="tablist" aria-label="Product" style={{
+    <div role="tablist" aria-label={t("how.product")} style={{
       display: "inline-flex", gap: 4, padding: 4, borderRadius: 999,
       background: "rgba(var(--hm-line-c), 0.05)", border: "1px solid rgba(var(--hm-line-c), 0.08)",
     }}>
-      {seg("options", "Options")}
-      {seg("perps", "Perpetuals")}
+      {seg("options", t("how.options"))}
+      {seg("perps", t("how.perps"))}
     </div>
   );
 }
@@ -409,6 +412,7 @@ const MARKETS: Market[] = [
 ];
 
 function MarketCard({ market }: { market: Market }) {
+  const t = useT();
   const up = market.change >= 0;
   const changeColor = up ? GAIN : LOSS;
   const col = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } as const;
@@ -427,7 +431,7 @@ function MarketCard({ market }: { market: Market }) {
             // must not go through --hm-logo-filter (the invert(1) trick built for HanMarket's own mono mark)
             background: "#FFFFFF", border: "1px solid rgba(var(--hm-gold-c), 0.28)",
           }}>
-            <img src={market.logo} alt={`${market.name} logo`} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            <img src={market.logo} alt={t("markets.logo", { name: market.name })} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </span>
           <div>
             <div style={{ fontFamily: "'Noto Sans SC'," + SANS, fontSize: 20, fontWeight: 500, color: TEXT, lineHeight: 1.2 }}>{market.cn}</div>
@@ -447,7 +451,7 @@ function MarketCard({ market }: { market: Market }) {
       </div>
 
       <div style={{ ...col, fontFamily: MONO, fontSize: 10.5, letterSpacing: "0.08em", color: MUTED_2, paddingBottom: 8 }}>
-        <span>STRIKE</span><span style={{ textAlign: "right" }}>CALL</span><span style={{ textAlign: "right" }}>PUT</span>
+        <span>{t("markets.strike")}</span><span style={{ textAlign: "right" }}>{t("markets.call")}</span><span style={{ textAlign: "right" }}>{t("markets.put")}</span>
       </div>
       {market.chain.map(([strike, call, put], i) => {
         const atm = i === 1;
@@ -464,12 +468,12 @@ function MarketCard({ market }: { market: Market }) {
       })}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18 }}>
-        <span style={{ fontSize: 12, color: MUTED_2 }}>30-day expiry · USDC</span>
+        <span style={{ fontSize: 12, color: MUTED_2 }}>{t("markets.expiryNote")}</span>
         <Link to="/terminal" style={{
           textDecoration: "none", fontSize: 13, fontWeight: 700, color: "var(--hm-on-red)", background: GRADIENT,
           borderRadius: 999, padding: "9px 18px",
         }}>
-          Trade ↗
+          {t("markets.trade")}
         </Link>
       </div>
     </div>
@@ -563,6 +567,7 @@ function FinalCta() {
   const paperY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [-30, 30]);
   const buildingY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [60, -60]);
   const cloudsY = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [40, -30]);
+  const t = useT();
 
   return (
     <motion.div
@@ -639,9 +644,9 @@ function FinalCta() {
       </motion.div>
 
       <div className="cta-content">
-        <Reveal y={14} delay={0.15}><p style={EYEBROW}>Start trading</p></Reveal>
+        <Reveal y={14} delay={0.15}><p style={EYEBROW}>{t("cta.eyebrow")}</p></Reveal>
         <Reveal delay={0.25}>
-          <h2 className="cta-title">Trade the<br />Next China.</h2>
+          <h2 className="cta-title">{lines(t("cta.title"))}</h2>
         </Reveal>
         <motion.div
           className="cta-rule"
@@ -651,14 +656,14 @@ function FinalCta() {
           transition={{ duration: 0.9, delay: 0.5, ease: [0.76, 0, 0.24, 1] }}
         />
         <Reveal delay={0.45} y={18}>
-          <p className="cta-lead">Options and perpetuals on Tencent, Alibaba, Xiaomi, BYD and more, settled in USDC on Robinhood Chain. Connect a wallet and place your first trade on testnet.</p>
+          <p className="cta-lead">{t("cta.lead")}</p>
         </Reveal>
         <Reveal delay={0.6} y={18}>
           <div className="cta-actions">
-            <Link to="/terminal" className="cta-btn cta-btn--solid">Start Trading →</Link>
-            <Link to="/docs" className="cta-btn cta-btn--ghost">Read the Docs</Link>
+            <Link to="/terminal" className="cta-btn cta-btn--solid">{t("cta.start")}</Link>
+            <Link to="/docs" className="cta-btn cta-btn--ghost">{t("cta.docs")}</Link>
           </div>
-          <p className="cta-note">Running on Robinhood Chain testnet · not yet audited</p>
+          <p className="cta-note">{t("cta.note")}</p>
         </Reveal>
       </div>
     </motion.div>
@@ -669,12 +674,13 @@ function FinalCta() {
  * after "deposit": one has an expiry and a premium, the other leverage and funding. */
 function HowItWorksSection() {
   const [product, setProduct] = useState<"options" | "perps">("options");
+  const t = useT();
   return (
     <section id="how" className="lp-section" style={{ padding: "100px 20px" }}>
       <div className="dock-lockup" style={{ marginBottom: 32 }}>
         <CoinDock />
         <div className="dock-lockup-text">
-          <RevealHeading eyebrow="How It Works" title="From wallet to trade in six steps" align="left" marginBottom={0} />
+          <RevealHeading eyebrow={t("how.eyebrow")} title={t("how.title")} align="left" marginBottom={0} />
         </div>
       </div>
       <Reveal y={14} amount={0.6}>
@@ -688,7 +694,7 @@ function HowItWorksSection() {
           glowColor="var(--hm-red-c)"
           spotlightRadius={400}
           particleCount={12}
-          cards={product === "options" ? OPTIONS_STEPS : PERPS_STEPS}
+          cards={product === "options" ? optionsSteps(t) : perpsSteps(t)}
         />
       </div>
     </section>
@@ -697,9 +703,11 @@ function HowItWorksSection() {
 
 export default function HanPerpLanding() {
   const reduceMotion = useReducedMotion();
+  const { introKey } = useI18n();
   const location = useLocation();
   const { theme } = useTheme();
   const finePointer = useMediaQuery(FINE_POINTER);
+  const t = useT();
 
   // Smooth scrolling (Lenis): a wheel step glides instead of jumping 100px at once, so everything tied to the
   // scroll (the hero's layers, the coin's journey) moves continuously. Touch scrolling is left native.
@@ -802,8 +810,10 @@ export default function HanPerpLanding() {
           COLOR="#FFFFFF"
         />
       )}
-      <HanperpHero />
-      <CoinJourney delay={HERO_COIN_DELAY} reduce={reduceMotion} />
+      {/* keyed on introKey: after a language change the hero and the coin replay their first-visit intro as the
+          language curtain parts (i18n/index.tsx) */}
+      <HanperpHero key={`hero-${introKey}`} />
+      <CoinJourney key={`coin-${introKey}`} delay={HERO_COIN_DELAY} reduce={reduceMotion} />
 
       {/* WHAT YOU CAN TRADE: first thing under the clouds: straight into the product, no mocked
           screenshot standing in for it. Two cards, not four: Vault and OracleRouter used to have their
@@ -812,11 +822,10 @@ export default function HanPerpLanding() {
       <section id="engines" className="lp-section" style={{ position: "relative", zIndex: 6, marginTop: `-${HERO_OVERLAP}`, padding: "40px 20px 100px" }}>
         <div className="dock-row">
           <div className="dock-row-main">
-            <RevealHeading eyebrow="What You Can Trade" title="Options and perpetuals" align="left" maxWidth={880} marginBottom={40} />
+            <RevealHeading eyebrow={t("engines.eyebrow")} title={t("engines.title")} align="left" maxWidth={880} marginBottom={40} />
             <ProtocolPanel />
             <p className="dock-row-note" style={{ fontFamily: SANS, fontSize: 12.5, color: MUTED_2, maxWidth: 520, margin: "20px 0 0" }}>
-              Max leverage is a live figure. Strike, premium and funding shown here are a worked example. See
-              Markets below for live pricing.
+              {t("engines.note")}
             </p>
           </div>
           <CoinDock />
@@ -825,7 +834,7 @@ export default function HanPerpLanding() {
 
       {/* BUILT WITH: the real stack, not fake "trusted by" client logos. Logos only, all in one grey (head's
           call): the names stay as each logo's accessible name and hover title. HanMarket's own mark leads the row. */}
-      <section style={{ padding: "20px 0 36px" }} aria-label="Built with">
+      <section style={{ padding: "20px 0 36px" }} aria-label={t("builtWith")}>
         {/* Every logo as a flat silhouette: colour to black, and alpha pushed to solid, so a logo drawn with shading or
             see-through layers (the Pons P) comes out as one even shape like the rest. */}
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
@@ -869,9 +878,9 @@ export default function HanPerpLanding() {
           <div className="dock-lockup" style={{ marginBottom: 48 }}>
             <div className="dock-lockup-text">
               <RevealHeading
-                eyebrow="Markets"
-                title={<>Real Hong Kong &amp; China equities</>}
-                lead="Every stock has an option chain, shown here as an illustration. BABA also trades as a perpetual. Live pricing arrives when markets launch."
+                eyebrow={t("markets.eyebrow")}
+                title={t("markets.title")}
+                lead={t("markets.lead")}
                 align="left"
                 marginBottom={0}
               />
@@ -880,14 +889,14 @@ export default function HanPerpLanding() {
           </div>
           <Reveal y={60} amount={0.2}>
           <Coverflow
-            ariaLabel="Example markets. Use the arrow keys to browse."
+            ariaLabel={t("markets.aria")}
             itemLabels={MARKETS.map((m) => `${m.symbol} ${m.name}`)}
             initialIndex={2}
             accent="var(--hm-red)"
             rotation={24}
             itemWidth={340}
             spacing={260}
-            announce={(i, total) => `Showing ${MARKETS[i].name}, ${i + 1} of ${total}`}
+            announce={(i, total) => t("markets.showing", { name: MARKETS[i].name, n: i + 1, total })}
             items={MARKETS.map((m) => <MarketCard key={m.symbol} market={m} />)}
           />
           </Reveal>
@@ -918,14 +927,17 @@ export default function HanPerpLanding() {
           }
         `}</style>
         <div className="why-grid">
-          {[
-            ["股", "Hong Kong & China equities", "Options on 33 Hong Kong and China names: Tencent, Alibaba, Xiaomi, BYD and more."],
-            ["明", "Settled in the open", "Collateral, trades and settlement are contract calls on Robinhood Chain. Anyone can check them on the explorer."],
-            ["守", "No company account", "Your collateral sits in the vault contract. Your free balance can be withdrawn at any time, even while trading is paused."],
-            ["廉", "Fees in plain numbers", "1% of the premium on options, 0.08% of size on perpetuals, and gas that costs cents."],
-          ].map(([char, title, text], i) => (
+          {([
+            ["股", "stocks"],
+            ["明", "open"],
+            ["守", "custody"],
+            ["廉", "fees"],
+          ] as const).map(([char, key], i) => {
+            const title = t(`why.${key}.title`);
+            const text = t(`why.${key}.text`);
+            return (
             <motion.div
-              key={title}
+              key={key}
               className="why-item"
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -936,7 +948,8 @@ export default function HanPerpLanding() {
               <h3 className="why-title">{title}</h3>
               <p className="why-text">{text}</p>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -945,15 +958,10 @@ export default function HanPerpLanding() {
         <div className="dock-faq">
           <div className="dock-faq-side"><CoinDock sticky /></div>
           <div className="dock-faq-text">
-          <RevealHeading eyebrow="FAQ" title="Questions traders actually ask" align="left" marginBottom={40} />
-          <FAQItem index={0} q="What is an options contract, in plain terms?" a="A call option lets you lock in today's price to buy an asset later; a put does the opposite for selling. On HanMarket, everything is priced in USDC and settled onchain. You never touch the real Hong Kong shares." />
-          <FAQItem index={1} q="What is a perpetual, in plain terms?" a="A leveraged long or short with no expiry date. You hold it as long as you want and close it whenever you choose. Longs and shorts pay each other funding depending on which side is more crowded, so the price stays honest without a settlement date." />
-          <FAQItem index={2} q="How much leverage can I use on a perpetual, and what does it cost?" a="Every perp market allows up to 10x while HanMarket is on testnet. Leverage and margin are linked: 10x needs about 10% margin, and a position is liquidated once its equity falls to 5% of its size. That is roughly a 5% move against you, sooner once fees and funding are counted, so a small move can wipe out the margin. A price that gaps past the liquidation level is a loss the vault absorbs rather than you. The limit is a risk setting, not a fixed ceiling, and the contracts have not been audited yet, so trade with funds you can afford to lose." />
-          <FAQItem index={3} q="Is my collateral safe?" a="HanMarket is self-custodial: your wallet holds your collateral, not HanMarket. That said, the protocol is new and has not yet been through a third-party security audit. Trade with that in mind, and only with funds you can afford to risk." />
-          <FAQItem index={4} q="Is this live on mainnet?" a="Not yet. HanMarket runs on Robinhood Chain testnet while the contract is tested. A mainnet launch will be announced once it has been audited." />
-          <FAQItem index={5} q="Which wallets are supported?" a="Any EVM wallet: MetaMask, Rabby, the Robinhood Wallet or anything that connects through WalletConnect. Keep a little ETH on Robinhood Chain for gas." />
-          <FAQItem index={6} q="Why Hong Kong and China equities specifically?" a="Names like Tencent, Alibaba, Xiaomi and BYD give traders outside China exposure to major Chinese companies without a local brokerage account, with every trade paid in USDC." />
-          <FAQItem index={7} q="How is the settlement or liquidation price decided?" a="On mainnet, Alibaba (options and BABA-PERP) uses Chainlink's onchain Robinhood BABA / USD feed, so nobody can change it. On testnet, Chainlink has no equity feeds, so BABA and the six other perp markets use a feed the HanMarket keeper updates from market data. Every other stock has no onchain feed, so its options settle with a price signed by HanMarket. Each market shows which one it uses before you trade." />
+          <RevealHeading eyebrow={t("faq.eyebrow")} title={t("faq.title")} align="left" marginBottom={40} />
+          {(["option", "perp", "leverage", "safe", "mainnet", "wallets", "whyChina", "price"] as const).map((k, i) => (
+            <FAQItem key={k} index={i} q={t(`faq.${k}.q`)} a={t(`faq.${k}.a`)} />
+          ))}
           </div>
         </div>
       </section>
@@ -976,7 +984,7 @@ export default function HanPerpLanding() {
           <LogoMark size={36} />
           <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 18, fontWeight: 700, fontFamily: SANS, color: TEXT }}><LogoText /></span>
-            <span style={{ fontFamily: "'Montserrat', 'Inter Tight', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: MUTED_2 }}>MARKETS WITHOUT BORDERS</span>
+            <span style={{ fontFamily: "'Montserrat', 'Inter Tight', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: MUTED_2 }}>{t("footer.tagline")}</span>
           </span>
           {X_URL && (
             <a href={X_URL} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', color: MUTED, marginLeft: 16 }}>
@@ -987,11 +995,11 @@ export default function HanPerpLanding() {
           )}
         </span>
         <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", color: MUTED_2 }}>
-          Options and perpetuals on Hong Kong &amp; China equities · Built on Robinhood Chain
-          <span style={{ display: "block", marginTop: 6, fontFamily: "'Noto Sans SC'," + SANS, letterSpacing: "0.2em" }}>连接东西 · Connecting East and West</span>
+          {t("footer.line")}
+          <span style={{ display: "block", marginTop: 6, fontFamily: "'Noto Sans SC'," + SANS, letterSpacing: "0.2em" }}>{t("footer.east")}</span>
         </span>
         <span className="lp-footer-note" style={{ fontFamily: SANS, fontSize: 12, maxWidth: 360, textAlign: "right", lineHeight: 1.5, color: MUTED_2 }}>
-          Derivatives involve risk. Access is restricted by jurisdiction. Nothing here is financial advice.
+          {t("footer.risk")}
         </span>
       </motion.footer>
     </div>

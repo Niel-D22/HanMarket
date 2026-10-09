@@ -15,6 +15,8 @@ import {
 import type { PanelKey, Panels } from './panels';
 import { X_URL } from '../config/social';
 import { OpenInWallet, needsWalletApp } from './OpenInWallet';
+import { useT } from '../i18n';
+import { LanguageSwitch } from '../i18n/LanguageSwitch';
 
 export type View = 'trade' | 'markets' | 'strategies' | 'portfolio' | 'activity' | 'vault';
 export type Product = 'options' | 'perps';
@@ -37,27 +39,28 @@ export function TopBar({ network, setNetwork, onSelect, onMenu, panels, onPanel,
   onPanel: (key: PanelKey) => void;
   onHelp: () => void;
 }) {
+  const t = useT();
   const [q, setQ] = useState('');
   const [walletApp, setWalletApp] = useState(false);
   const results = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return [];
-    return ASSETS.filter((a) => [a.symbol, a.name, a.cn].some((s) => s.toLowerCase().includes(t))).slice(0, 8);
+    const term = q.trim().toLowerCase();
+    if (!term) return [];
+    return ASSETS.filter((a) => [a.symbol, a.name, a.cn].some((s) => s.toLowerCase().includes(term))).slice(0, 8);
   }, [q]);
 
   return (
     <header className="tm-top">
-      <button type="button" className="tm-menu-btn" aria-label="Open menu" onClick={onMenu}><IconMenu /></button>
-      <Link to="/" className="tm-brand" aria-label="HanMarket home">
+      <button type="button" className="tm-menu-btn" aria-label={t('nav.openMenu')} onClick={onMenu}><IconMenu /></button>
+      <Link to="/" className="tm-brand" aria-label={t('tm.home')}>
         <img src="/brand/hanmarket-mark.png" alt="" width={26} height={26} />
-        <span>HANMARKET</span>
+        <span lang="en">HANMARKET</span>
       </Link>
       <button
         type="button"
         className="tm-icon-btn tm-desk-only"
         aria-pressed={!panels.side}
-        aria-label={panels.side ? 'Hide the sidebar' : 'Show the sidebar'}
-        title={`${panels.side ? 'Hide' : 'Show'} the sidebar ( [ )`}
+        aria-label={t(panels.side ? 'tm.hideSidebar' : 'tm.showSidebar')}
+        title={`${t(panels.side ? 'tm.hideSidebar' : 'tm.showSidebar')} ( [ )`}
         onClick={() => onPanel('side')}
       >
         <IconPanelLeft />
@@ -69,8 +72,8 @@ export function TopBar({ network, setNetwork, onSelect, onMenu, panels, onPanel,
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) { onSelect(results[0].symbol); setQ(''); } if (e.key === 'Escape') setQ(''); }}
-          placeholder="Search markets: Tencent, 0700, BABA, 比亚迪…"
-          aria-label="Search markets"
+          placeholder={t('tm.searchPlaceholder')}
+          aria-label={t('tm.search')}
         />
         {results.length > 0 && (
           <div className="tm-search-results" role="listbox">
@@ -85,36 +88,38 @@ export function TopBar({ network, setNetwork, onSelect, onMenu, panels, onPanel,
       </div>
       <div className="tm-top-right">
         {X_URL && (
-          <a className="tm-icon-btn tm-x" href={X_URL} target="_blank" rel="noreferrer noopener" aria-label="HanMarket on X" title="HanMarket on X">
+          <a className="tm-icon-btn tm-x" href={X_URL} target="_blank" rel="noreferrer noopener" aria-label={t('nav.onX')} title={t('nav.onX')}>
             <IconX />
           </a>
         )}
-        <button type="button" className="tm-icon-btn tm-desk-only" aria-label="Keyboard shortcuts" title="Keyboard shortcuts ( ? )" onClick={onHelp}>
+        <button type="button" className="tm-icon-btn tm-desk-only" aria-label={t('tm.shortcuts')} title={`${t('tm.shortcuts')} ( ? )`} onClick={onHelp}>
           <IconKeyboard />
         </button>
         <button
           type="button"
           className="tm-icon-btn tm-desk-only"
           aria-pressed={!panels.right}
-          aria-label={panels.right ? 'Hide the order terminal' : 'Show the order terminal'}
-          title={`${panels.right ? 'Hide' : 'Show'} the order terminal ( ] )`}
+          aria-label={t(panels.right ? 'tm.hideOrder' : 'tm.showOrder')}
+          title={`${t(panels.right ? 'tm.hideOrder' : 'tm.showOrder')} ( ] )`}
           onClick={() => onPanel('right')}
         >
           <IconPanelRight />
         </button>
         <ChinaClock variant="terminal" className="tm-desk-only" />
         <MusicToggle variant="terminal" className="tm-desk-only" />
+        <LanguageSwitch variant="terminal" />
         <ThemeToggle className="theme-toggle tm-theme" />
-        <div className="tm-net" role="group" aria-label="Network">
+        <div className="tm-net" role="group" aria-label={t('tm.network')}>
           {(['mainnet', 'testnet'] as const).map((n) => (
             <button key={n} type="button" aria-pressed={network === n} onClick={() => setNetwork(n)}>
-              {n === 'mainnet' ? 'Mainnet' : 'Testnet'}
+              <span className="tm-net-full">{t(n === 'mainnet' ? 'tm.mainnet' : 'tm.testnet')}</span>
+              <span className="tm-net-short">{t(n === 'mainnet' ? 'tm.mainnetShort' : 'tm.testnetShort')}</span>
             </button>
           ))}
         </div>
         <ConnectButton.Custom>
           {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
-            const label = !mounted || !account ? 'Connect Wallet' : chain?.unsupported ? 'Wrong network' : account.displayName;
+            const label = !mounted || !account ? t('tm.connect') : chain?.unsupported ? t('tm.wrongNetwork') : account.displayName;
             // a phone browser with no wallet in it: point to the wallet apps instead of a connect modal with nothing to offer
             const connect = () => (needsWalletApp() ? setWalletApp(true) : openConnectModal());
             const onClick = !account ? connect : chain?.unsupported ? openChainModal : openAccountModal;
@@ -174,17 +179,18 @@ function PerpsEmpty({ network, deployed, loading, onSwitchTestnet }: {
   loading: boolean;
   onSwitchTestnet: () => void;
 }) {
+  const t = useT();
   if (!deployed && network === 'mainnet') {
     return (
       <div className="tm-empty">
-        <b>Mainnet opens at launch</b>
-        Perpetuals are live on testnet now.
-        <button type="button" className="tm-empty-btn" onClick={onSwitchTestnet}>Switch to Testnet</button>
+        <b>{t('tm.mainnetSoon')}</b>
+        {t('tm.perpsOnTestnet')}
+        <button type="button" className="tm-empty-btn" onClick={onSwitchTestnet}>{t('tm.switchTestnet')}</button>
       </div>
     );
   }
-  if (!deployed) return <div className="tm-empty">Perpetuals open once the protocol is deployed on this network.</div>;
-  return <div className="tm-empty">{loading ? 'Loading markets…' : 'No perpetual markets listed yet.'}</div>;
+  if (!deployed) return <div className="tm-empty">{t('tm.perpsNotDeployed')}</div>;
+  return <div className="tm-empty">{t(loading ? 'tm.loadingMarkets' : 'tm.noPerps')}</div>;
 }
 
 export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perps, network, deployed, onSwitchTestnet, open, onClose }: {
@@ -201,15 +207,16 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<Product>(product);
   const watch = useWatchlist();
-  const nav: { id: View; label: string; icon: ReactElement; badge?: string }[] = [
-    { id: 'trade', label: 'Trade', icon: <IconTrade /> },
-    { id: 'markets', label: 'Markets', icon: <IconMarkets /> },
-    { id: 'strategies', label: 'Strategies', icon: <IconStrategy /> },
-    { id: 'portfolio', label: 'Portfolio', icon: <IconPortfolio /> },
-    { id: 'activity', label: 'Activity', icon: <IconActivity /> },
-    { id: 'vault', label: 'Vault', icon: <IconVault />, badge: 'LP' },
+  const nav: { id: View; icon: ReactElement; badge?: string }[] = [
+    { id: 'trade', icon: <IconTrade /> },
+    { id: 'markets', icon: <IconMarkets /> },
+    { id: 'strategies', icon: <IconStrategy /> },
+    { id: 'portfolio', icon: <IconPortfolio /> },
+    { id: 'activity', icon: <IconActivity /> },
+    { id: 'vault', icon: <IconVault />, badge: 'LP' },
   ];
   const go = (v: View) => { setView(v); onClose(); };
   const pick = (s: string, p?: Product) => { onSelect(s, p); onClose(); };
@@ -231,8 +238,8 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
           type="button"
           className={`tm-star ${watch.has(a.symbol) ? 'on' : ''}`}
           aria-pressed={watch.has(a.symbol)}
-          aria-label={`${watch.has(a.symbol) ? 'Remove' : 'Add'} ${a.symbol} ${watch.has(a.symbol) ? 'from' : 'to'} watchlist`}
-          title={watch.has(a.symbol) ? 'Remove from watchlist' : 'Add to watchlist'}
+          aria-label={t(watch.has(a.symbol) ? 'tm.removeWatch' : 'tm.addWatch', { symbol: a.symbol })}
+          title={t(watch.has(a.symbol) ? 'tm.removeWatchTitle' : 'tm.addWatchTitle')}
           onClick={() => watch.toggle(a.symbol)}
         >
           {watch.has(a.symbol) ? '★' : '☆'}
@@ -242,32 +249,33 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
   };
 
   return (
-    <aside className={`tm-side tm-col ${open ? 'is-open' : ''}`} aria-label="Navigation">
-      <div className="tm-side-h">NAVIGATION</div>
+    <aside className={`tm-side tm-col ${open ? 'is-open' : ''}`} aria-label={t('tm.navigation')}>
+      <div className="tm-side-lang"><LanguageSwitch variant="terminal" /></div>
+      <div className="tm-side-h">{t('tm.navigationH')}</div>
       <nav className="tm-nav">
         {nav.map((n) => (
           <button key={n.id} type="button" aria-current={view === n.id ? 'page' : undefined} onClick={() => go(n.id)}>
-            {n.icon} {n.label} {n.badge && <span className="tm-badge">{n.badge}</span>}
+            {n.icon} {t(`tm.view.${n.id}`)} {n.badge && <span className="tm-badge">{n.badge}</span>}
           </button>
         ))}
-        <Link to="/docs"><IconDocs /> Docs</Link>
+        <Link to="/docs"><IconDocs /> {t('tm.view.docs')}</Link>
       </nav>
 
       <div className="tm-watch">
-        <div className="tm-side-h">WATCHLIST</div>
+        <div className="tm-side-h">{t('tm.watchlistH')}</div>
         {watch.list.length === 0
-          ? <div className="tm-empty">No markets starred. Use the ☆ beside a market below to add one.</div>
+          ? <div className="tm-empty">{t('tm.watchEmpty')}</div>
           : watch.list.map((s) => ASSETS.find((a) => a.symbol === s)).filter(Boolean).map((a) => assetRow(a!, view === 'trade' && symbol === a!.symbol))}
       </div>
 
-      <div className="tm-side-h">MARKETS</div>
+      <div className="tm-side-h">{t('tm.marketsH')}</div>
       <div className="tm-tabs" role="tablist">
-        <button type="button" role="tab" className="tm-tab" aria-selected={tab === 'options'} onClick={() => setTab('options')}>Options</button>
-        <button type="button" role="tab" className="tm-tab" aria-selected={tab === 'perps'} onClick={() => setTab('perps')}>Perpetuals</button>
+        <button type="button" role="tab" className="tm-tab" aria-selected={tab === 'options'} onClick={() => setTab('options')}>{t('tm.options')}</button>
+        <button type="button" role="tab" className="tm-tab" aria-selected={tab === 'perps'} onClick={() => setTab('perps')}>{t('tm.perpetuals')}</button>
       </div>
       <div>
         {tab === 'options'
-          ? ASSETS.map((a) => assetRow(a, view === 'trade' && product === 'options' && symbol === a.symbol, 'options', `${a.symbol} Options`))
+          ? ASSETS.map((a) => assetRow(a, view === 'trade' && product === 'options' && symbol === a.symbol, 'options', t('tm.optionsOf', { symbol: a.symbol })))
           : (perps?.length
             ? perps.map((m) => {
                 const a = ASSETS.find((x) => x.symbol === m.assetSymbol);
@@ -283,6 +291,7 @@ export function Sidebar({ view, setView, symbol, product, onSelect, quotes, perp
 
 /** Every market's price and 24h change, scrolling along the top. The list is drawn twice so the loop has no seam. */
 export function Ticker({ quotes, onSelect }: { quotes: Record<string, Quote>; onSelect: (symbol: string) => void }) {
+  const t = useT();
   const items = ASSETS.filter((a) => quotes[a.symbol]);
   if (!items.length) return <div className="tm-ticker" aria-hidden="true" />;
   const run = (copy: number) => items.map((a) => {
@@ -294,7 +303,7 @@ export function Ticker({ quotes, onSelect }: { quotes: Record<string, Quote>; on
     );
   });
   return (
-    <div className="tm-ticker" aria-label="Market prices">
+    <div className="tm-ticker" aria-label={t('tm.marketPrices')}>
       <div className="tm-ticker-run">{run(0)}<span aria-hidden="true">{run(1)}</span></div>
     </div>
   );

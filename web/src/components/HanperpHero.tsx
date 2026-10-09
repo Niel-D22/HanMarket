@@ -10,6 +10,7 @@ import {
   useAnimation,
   animate,
 } from "motion/react";
+import { useT } from "../i18n";
 import type { MotionValue } from "motion/react";
 import { Cloudscape } from "./Cloudscape";
 import { HeroScene, useCamera, useDepth } from "./HeroScene";
@@ -97,6 +98,7 @@ export function HanperpHero() {
     "idle",
   );
   const reduce = useReducedMotion();
+  const t = useT();
   const narrow = useMediaQuery("(max-width: 820px)");
   const { theme } = useTheme();
 
@@ -431,7 +433,7 @@ export function HanperpHero() {
               {/* where the 3D coin starts; it flies on down the page from here (CoinJourney) */}
               <HeroCoinSlot delay={T.mark} reduce={reduce} />
               <motion.div style={{ opacity: textOpacity }}>
-                <h1 className="hp-word" aria-label="HanMarket">
+                <h1 className="hp-word" aria-label="HanMarket" lang="en">
                   {letters.map((ch, i) => (
                     <motion.span
                       key={i}
@@ -453,10 +455,10 @@ export function HanperpHero() {
                   ))}
                 </h1>
                 <motion.p className="hp-tag" {...fadeUp(T.tag)}>
-                  Trade China. Without Borders.
+                  {t("hero.tagline")}
                 </motion.p>
                 <motion.p className="hp-sub" {...fadeUp(T.sub, 12)}>
-                  CHINA EQUITIES. ONCHAIN.
+                  {t("hero.sub")}
                 </motion.p>
                 <motion.div
                   className="hp-rule"
@@ -482,10 +484,10 @@ export function HanperpHero() {
                 {...fadeUp(T.cta)}
               >
                 <Link to="/terminal" className="hp-btn hp-btn--solid">
-                  Start Trading →
+                  {t("hero.start")}
                 </Link>
                 <Link to="/#markets" className="hp-btn hp-btn--ghost">
-                  View Markets
+                  {t("hero.viewMarkets")}
                 </Link>
               </motion.div>
               <motion.div
@@ -493,30 +495,30 @@ export function HanperpHero() {
                 style={{ pointerEvents: textPointer }}
                 {...fadeUp(T.cta + 0.15)}
               >
-                <span>TOKEN CA</span>
+                <span>{t("hero.tokenCa")}</span>
                 <span className="hp-token-ca-value">
                   {hasTokenCa
                     ? `${TOKEN_CA.slice(0, 6)}…${TOKEN_CA.slice(-4)}`
-                    : "Address coming soon"}
+                    : t("hero.caSoon")}
                 </span>
                 <button
                   type="button"
                   className="hp-token-ca-copy"
                   disabled={!hasTokenCa}
                   onClick={copyTokenCa}
-                  aria-label="Copy HanMarket token contract address"
+                  aria-label={t("hero.copyAria")}
                   aria-live="polite"
                   title={
                     hasTokenCa
-                      ? "Copy the full token contract address"
+                      ? t("hero.copyTitle")
                       : "Add the official token contract address in TOKEN_CA"
                   }
                 >
                   {caCopyStatus === "copied"
-                    ? "Copied"
+                    ? t("hero.copied")
                     : caCopyStatus === "error"
-                      ? "Copy failed"
-                      : "Copy"}
+                      ? t("hero.copyFailed")
+                      : t("hero.copy")}
                 </button>
               </motion.div>
             </motion.div>

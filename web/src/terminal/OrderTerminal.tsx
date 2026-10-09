@@ -4,10 +4,11 @@ import { useNetwork } from '../contexts/NetworkContext';
 import { erc20Abi, optionsAbi, perpsAbi, vaultAbi } from '../../api/_lib/protocol/abis';
 import { fetchQuote, useOptionChain, type SelectedOption } from './options';
 import {
-  fmtPrice, fmtUsd, optionLabel, priceSource, toUsd6, useCollateralSymbol, useProtocol,
+  SOURCE_KEY, fmtPrice, fmtUsd, optionLabel, priceSource, toUsd6, useCollateralSymbol, useProtocol,
   type AccountState, type Fees, type OptionHolding, type PerpMarket, type Step, type useTx,
 } from './protocol';
 import type { Product } from './Chrome';
+import { rich, useT } from '../i18n';
 
 type Tx = ReturnType<typeof useTx>;
 /** Opens the bottom panel that holds a finished transaction's result. */
@@ -28,6 +29,7 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
   deployed: boolean;
   goTo: GoTo;
 }) {
+  const t = useT();
   const unit = useCollateralSymbol();
   const { d } = useProtocol();
   const [isLong, setIsLong] = useState(true);
@@ -54,26 +56,26 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
     : 0;
   const limitNotional = perp ? Number(perp.risk.maxPositionNotional) / 1e6 : 0;
 
-  const problem = !deployed ? 'Not deployed on this network'
-    : !perp ? 'No perpetual for this market'
-    : !address ? 'Connect wallet'
-    : !perp.tradingOpen ? 'Market closed'
-    : shares <= 0 ? 'Enter a size'
-    : notional > limitNotional ? `Max position ${fmtUsd(limitNotional, 0)}`
-    : required > free + 1e-9 ? `Deposit ${unit} to trade`
+  const problem = !deployed ? t('tm.notDeployed')
+    : !perp ? t('tm.noPerpMarket')
+    : !address ? t('tm.connectWallet')
+    : !perp.tradingOpen ? t('tm.marketClosed')
+    : shares <= 0 ? t('tm.enterSize')
+    : notional > limitNotional ? t('tm.maxPosition', { amount: fmtUsd(limitNotional, 0) })
+    : required > free + 1e-9 ? t('tm.depositToTrade', { unit })
     : null;
 
   const submit = async () => {
     if (!perp || !d || problem) return;
     const acceptable = toUsd6(isLong ? price * (1 + SLIPPAGE) : price * (1 - SLIPPAGE));
-    const ok = await tx.run(`${isLong ? 'Long' : 'Short'} ${perp.symbol} ${lev}x`, [
+    const ok = await tx.run(t('tm.txPerp', { side: t(isLong ? 'tm.long' : 'tm.short'), symbol: perp.symbol, lev }), [
       (w) => w.writeContract({
         address: d.perpsEngine, abi: perpsAbi, functionName: 'increasePosition',
         args: [perp.id, isLong, toUsd6(required), toUsd6(notional), acceptable, deadline()],
       }),
     ], {
-      text: `Your ${isLong ? 'long' : 'short'} on ${perp.symbol} is open, and its margin is now locked.`,
-      action: { label: 'View position', run: () => goTo('positions') },
+      text: t('tm.outPerp', { side: t(isLong ? 'tm.longLc' : 'tm.shortLc'), symbol: perp.symbol }),
+      action: { label: t('tm.viewPosition'), run: () => goTo('positions') },
     });
     if (ok) setSize('');
   };
@@ -82,19 +84,19 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
 
   return (
     <>
-      <div className="tm-seg" role="group" aria-label="Side">
-        <button type="button" className="long" aria-pressed={isLong} onClick={() => setIsLong(true)}>Long</button>
-        <button type="button" className="short" aria-pressed={!isLong} onClick={() => setIsLong(false)}>Short</button>
+      <div className="tm-seg" role="group" aria-label={t('tm.side')}>
+        <button type="button" className="long" aria-pressed={isLong} onClick={() => setIsLong(true)}>{t('tm.long')}</button>
+        <button type="button" className="short" aria-pressed={!isLong} onClick={() => setIsLong(false)}>{t('tm.short')}</button>
       </div>
       <div className="tm-types" role="tablist">
-        <button type="button" role="tab" aria-selected="true">Market</button>
-        <button type="button" role="tab" aria-selected="false" disabled title="Limit orders arrive in phase 2">Limit</button>
-        <button type="button" role="tab" aria-selected="false" disabled title="Stop loss / take profit arrive in phase 2">Advanced</button>
+        <button type="button" role="tab" aria-selected="true">{t('tm.marketOrder')}</button>
+        <button type="button" role="tab" aria-selected="false" disabled title={t('tm.limitSoon')}>{t('tm.limit')}</button>
+        <button type="button" role="tab" aria-selected="false" disabled title={t('tm.advancedSoon')}>{t('tm.advanced')}</button>
       </div>
 
-      <div className="tm-label"><span>Order Size ({perp?.assetSymbol ?? '—'})</span><span>≈ {fmtUsd(notional)}</span></div>
+      <div className="tm-label"><span>{t('tm.orderSize', { asset: perp?.assetSymbol ?? '—' })}</span><span>≈ {fmtUsd(notional)}</span></div>
       <div className="tm-input">
-        <input inputMode="decimal" placeholder="0.00" value={size} onChange={(e) => setSize(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Order size in shares" />
+        <input inputMode="decimal" placeholder="0.00" value={size} onChange={(e) => setSize(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={t('tm.orderSizeAria')} />
         <span>{perp?.assetSymbol ?? '—'}</span>
       </div>
       <div className="tm-pcts">
@@ -103,30 +105,30 @@ function PerpTicket({ perp, fees, account, address, tx, deployed, goTo }: {
         ))}
       </div>
 
-      <div className="tm-label"><span>Leverage</span><span className="dim">max {maxLev}x</span></div>
+      <div className="tm-label"><span>{t('tm.leverage')}</span><span className="dim">{t('tm.maxX', { x: maxLev })}</span></div>
       <div className="tm-lev">
-        <input type="range" min={1} max={maxLev} step={0.5} value={lev} onChange={(e) => setLev(Number(e.target.value))} aria-label="Leverage" />
+        <input type="range" min={1} max={maxLev} step={0.5} value={lev} onChange={(e) => setLev(Number(e.target.value))} aria-label={t('tm.leverage')} />
         <b>{lev}x</b>
       </div>
       <div className="tm-lev-marks">{marks.map((m) => <button key={m} type="button" onClick={() => setLev(m)}>{m}x</button>)}</div>
 
       <div className="tm-summary">
-        <div className="tm-kv"><span>Est. Position Value</span><span>{fmtUsd(notional)}</span></div>
-        <div className="tm-kv"><span>Est. Entry (index)</span><span>{fmtPrice(price)}</span></div>
-        <div className="tm-kv"><span>Req. Collateral</span><span className="gold">{fmtUsd(margin)}</span></div>
-        <div className="tm-kv"><span>Liquidation Price</span><span>{liq > 0 ? fmtPrice(liq) : '—'}</span></div>
-        <div className="tm-kv"><span>Trading Fee ({(feeRate * 100).toFixed(2)}%)</span><span>{fmtUsd(fee)}</span></div>
-        <div className="tm-kv"><span>Funding / {perp ? perp.risk.fundingInterval / 3600 : 1}h</span><span>{perp ? `${(perp.fundingRate * 100).toFixed(4)}%` : '—'}</span></div>
-        <div className="tm-kv"><span>Available Collateral</span><span>{fmtUsd(free)}</span></div>
+        <div className="tm-kv"><span>{t('tm.estValue')}</span><span>{fmtUsd(notional)}</span></div>
+        <div className="tm-kv"><span>{t('tm.estEntry')}</span><span>{fmtPrice(price)}</span></div>
+        <div className="tm-kv"><span>{t('tm.reqCollateral')}</span><span className="gold">{fmtUsd(margin)}</span></div>
+        <div className="tm-kv"><span>{t('tm.liquidationPrice')}</span><span>{liq > 0 ? fmtPrice(liq) : '—'}</span></div>
+        <div className="tm-kv"><span>{t('tm.tradingFee', { pct: (feeRate * 100).toFixed(2) })}</span><span>{fmtUsd(fee)}</span></div>
+        <div className="tm-kv"><span>{t('tm.fundingPer', { h: perp ? perp.risk.fundingInterval / 3600 : 1 })}</span><span>{perp ? `${(perp.fundingRate * 100).toFixed(4)}%` : '—'}</span></div>
+        <div className="tm-kv"><span>{t('tm.availableCollateral')}</span><span>{fmtUsd(free)}</span></div>
       </div>
       <button type="button" className={`tm-cta ${isLong ? 'long' : 'short'}`} disabled={!!problem || tx.state.stage === 'wallet' || tx.state.stage === 'confirming'} onClick={submit}>
         {/* a perpetual is opened long or short, never "bought". That word belongs to the options ticket,
             where "Buy Call / Buy Put" means something specific. Mixing them here ("Buy / Long") reads as
             if a perpetual position is purchased like an option, which it isn't. */}
-        {problem ?? `Open ${isLong ? 'Long' : 'Short'} ${perp?.assetSymbol}`}
+        {problem ?? t('tm.openSide', { side: t(isLong ? 'tm.long' : 'tm.short'), asset: perp?.assetSymbol ?? '' })}
       </button>
       <div className="tm-note">
-        Filled at the oracle index price (Chainlink on mainnet). Settled onchain in {unit} through the HanMarket Vault. Isolated margin: a loss never exceeds this position's collateral.
+        {t('tm.perpNote', { unit })}
       </div>
     </>
   );
@@ -148,6 +150,7 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
   goTo: GoTo;
   onClear: () => void;
 }) {
+  const t = useT();
   const unit = useCollateralSymbol();
   const { d, network } = useProtocol();
   const { apiUrl } = useNetwork();
@@ -161,8 +164,8 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
   if (!option) {
     return (
       <div className="tm-empty">
-        <b>Pick an option</b>
-        Click a <span className="up">Call/Put Ask</span> in the chain to buy, or a <span className="down">Bid</span> to sell one you hold.
+        <b>{t('tm.pickOption')}</b>
+        {rich(t('tm.pickOptionBody'), { up: (s) => <span className="up">{s}</span>, down: (s) => <span className="down">{s}</span> })}
       </div>
     );
   }
@@ -178,13 +181,14 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
   const fee = total * feeRate;
   const breakEven = option.isCall ? option.strike + premium : option.strike - premium;
   const held = holding?.contracts ?? 0;
-  const problem = !deployed ? 'Not deployed on this network'
-    : !address ? 'Connect wallet'
-    : n <= 0 ? 'Enter contracts'
-    : !premium ? 'No price right now'
-    : buying && total + fee > (account?.free ?? 0) + 1e-9 ? `Deposit ${unit} to trade`
-    : !buying && n > held + 1e-9 ? `You hold ${held} contracts`
+  const problem = !deployed ? t('tm.notDeployed')
+    : !address ? t('tm.connectWallet')
+    : n <= 0 ? t('tm.enterContracts')
+    : !premium ? t('tm.noPrice')
+    : buying && total + fee > (account?.free ?? 0) + 1e-9 ? t('tm.depositToTrade', { unit })
+    : !buying && n > held + 1e-9 ? t('tm.youHold', { n: held })
     : null;
+  const type = t(option.isCall ? 'tm.call' : 'tm.put');
 
   const submit = async () => {
     if (!d || problem) return;
@@ -202,19 +206,19 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
     };
     const qty = toUsd6(n);
     const held = optionLabel(option.symbol, option.expiry, option.strike, option.isCall);
-    await tx.run(`${buying ? 'Buy' : 'Sell'} ${held}`, [
+    await tx.run(t('tm.txOption', { action: t(buying ? 'tm.buy' : 'tm.sell'), label: held }), [
       (w) => w.writeContract({
         address: d.optionsEngine, abi: optionsAbi, functionName: buying ? 'buy' : 'sell',
         args: [qty, quote.premium, quote, q.signature],
       }),
     ], buying
       ? {
-          text: `${n} ${n === 1 ? 'contract' : 'contracts'} of ${held} now sits in your Options tab.`,
-          action: { label: 'View it', run: () => goTo('options') },
+          text: t('tm.outBuy', { label: held, n }),
+          action: { label: t('tm.viewIt'), run: () => goTo('options') },
         }
       : {
-          text: 'Sold. The premium is back in your available collateral.',
-          action: { label: 'See it in History', run: () => goTo('history') },
+          text: t('tm.outSell'),
+          action: { label: t('tm.seeHistory'), run: () => goTo('history') },
         });
   };
 
@@ -222,35 +226,35 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
     <>
       <div className="tm-card-h" style={{ marginBottom: 6 }}>
         <span className="tm-ticket-title">{optionLabel(option.symbol, option.expiry, option.strike, option.isCall)}</span>
-        <button type="button" className="tm-link" onClick={onClear}>Clear</button>
+        <button type="button" className="tm-link" onClick={onClear}>{t('tm.clear')}</button>
       </div>
-      <div className="tm-seg" role="group" aria-label="Side">
-        <button type="button" className="long" aria-pressed={buying} onClick={() => onSide('buy')}>Buy {option.isCall ? 'Call' : 'Put'}</button>
-        <button type="button" className="short" aria-pressed={!buying} disabled={!held} title={held ? '' : 'You hold none of this option'} onClick={() => onSide('sell')}>Sell</button>
+      <div className="tm-seg" role="group" aria-label={t('tm.side')}>
+        <button type="button" className="long" aria-pressed={buying} onClick={() => onSide('buy')}>{t('tm.buyType', { type })}</button>
+        <button type="button" className="short" aria-pressed={!buying} disabled={!held} title={held ? '' : t('tm.holdNone')} onClick={() => onSide('sell')}>{t('tm.sell')}</button>
       </div>
 
-      <div className="tm-label"><span>Contracts</span><span className="dim">{held ? `holding ${held}` : '1 contract = 1 share'}</span></div>
+      <div className="tm-label"><span>{t('tm.contracts')}</span><span className="dim">{held ? t('tm.holding', { n: held }) : t('tm.oneContract')}</span></div>
       <div className="tm-input">
-        <input inputMode="decimal" value={contracts} onChange={(e) => setContracts(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Contracts" />
-        <span>CONTRACTS</span>
+        <input inputMode="decimal" value={contracts} onChange={(e) => setContracts(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={t('tm.contracts')} />
+        <span>{t('tm.CONTRACTS')}</span>
       </div>
 
       <div className="tm-summary">
-        <div className="tm-kv"><span>Premium / Contract</span><span className={buying ? 'up' : 'down'}>{premium ? fmtUsd(premium) : '—'}</span></div>
-        <div className="tm-kv"><span>{buying ? 'Estimated Cost' : 'Estimated Proceeds'}</span><span>{fmtUsd(total)}</span></div>
-        <div className="tm-kv"><span>Fee ({(feeRate * 100).toFixed(1)}% of premium)</span><span>{fmtUsd(fee)}</span></div>
-        <div className="tm-kv"><span>Break Even</span><span>{fmtPrice(breakEven)}</span></div>
-        {buying && <div className="tm-kv"><span>Max Loss</span><span className="down">{fmtUsd(total + fee)}</span></div>}
-        {buying && <div className="tm-kv"><span>Max Profit (cap {fmtUsd(option.cap)})</span><span className="up">{fmtUsd((option.cap - premium) * n)}</span></div>}
-        <div className="tm-kv"><span>IV · Delta</span><span>{(iv * 100).toFixed(1)}% · {delta.toFixed(2)}</span></div>
-        <div className="tm-kv"><span>Settlement</span><span>{priceSource(network, hasFeed)}</span></div>
+        <div className="tm-kv"><span>{t('tm.premiumPer')}</span><span className={buying ? 'up' : 'down'}>{premium ? fmtUsd(premium) : '—'}</span></div>
+        <div className="tm-kv"><span>{t(buying ? 'tm.estCost' : 'tm.estProceeds')}</span><span>{fmtUsd(total)}</span></div>
+        <div className="tm-kv"><span>{t('tm.feeOfPremium', { pct: (feeRate * 100).toFixed(1) })}</span><span>{fmtUsd(fee)}</span></div>
+        <div className="tm-kv"><span>{t('tm.breakEven')}</span><span>{fmtPrice(breakEven)}</span></div>
+        {buying && <div className="tm-kv"><span>{t('tm.maxLoss')}</span><span className="down">{fmtUsd(total + fee)}</span></div>}
+        {buying && <div className="tm-kv"><span>{t('tm.maxProfitCap', { cap: fmtUsd(option.cap) })}</span><span className="up">{fmtUsd((option.cap - premium) * n)}</span></div>}
+        <div className="tm-kv"><span>{t('tm.ivDelta')}</span><span>{(iv * 100).toFixed(1)}% · {delta.toFixed(2)}</span></div>
+        <div className="tm-kv"><span>{t('tm.settlement')}</span><span>{t(SOURCE_KEY[priceSource(network, hasFeed)])}</span></div>
       </div>
       <button type="button" className={`tm-cta ${buying ? 'long' : 'short'}`} disabled={!!problem || tx.state.stage === 'wallet' || tx.state.stage === 'confirming'} onClick={submit}>
-        {problem ?? `${buying ? 'Buy' : 'Sell'} ${option.isCall ? 'Call' : 'Put'}`}
+        {problem ?? t(buying ? 'tm.buyType' : 'tm.sellType', { type })}
       </button>
       {quoteError && <div className="tm-note warn">{quoteError}</div>}
       <div className="tm-note">
-        A fresh signed quote is fetched when you submit; the wallet shows the exact premium. Cash-settled in {unit} at expiry; each contract pays at most its cap.
+        {t('tm.optionNote', { unit })}
       </div>
     </>
   );
@@ -259,6 +263,7 @@ function OptionTicket({ option, holding, fees, account, address, tx, deployed, g
 // ---------------------------------------------------------------- account
 
 function AccountCard({ account, address, tx, deployed }: { account?: AccountState; address?: Address; tx: Tx; deployed: boolean }) {
+  const t = useT();
   const unit = useCollateralSymbol();
   const { d, network } = useProtocol();
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
@@ -278,38 +283,38 @@ function AccountCard({ account, address, tx, deployed }: { account?: AccountStat
         ]
       : [(w) => w.writeContract({ address: d.vault, abi: vaultAbi, functionName: 'withdraw', args: [value] })];
     const outcome = mode === 'deposit'
-      ? { text: `${fmtUsd(a)} is now available collateral. You can buy an option or open a position with it.` }
-      : { text: `${fmtUsd(a)} is back in your wallet, outside the vault.` };
-    if (await tx.run(`${mode === 'deposit' ? 'Deposit' : 'Withdraw'} ${fmtUsd(a)}`, steps, outcome)) setAmount('');
+      ? { text: t('tm.outDeposit', { amount: fmtUsd(a) }) }
+      : { text: t('tm.outWithdraw', { amount: fmtUsd(a) }) };
+    if (await tx.run(t(mode === 'deposit' ? 'tm.txDeposit' : 'tm.txWithdraw', { amount: fmtUsd(a) }), steps, outcome)) setAmount('');
   };
 
   const faucet = () => {
     if (!d || !address) return;
-    tx.run('Get 10,000 test USDC', [
+    tx.run(t('tm.faucetTx'), [
       (w) => w.writeContract({ address: d.collateralToken, abi: erc20Abi, functionName: 'mint', args: [address, 10_000_000_000n] }),
-    ], { text: 'Test USDC is in your wallet. Deposit some into the vault to start trading.' });
+    ], { text: t('tm.faucetOut') });
   };
 
   return (
     <div className="tm-card">
-      <div className="tm-card-h"><span>Account</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>{unit}</span></div>
-      <div className="tm-kv"><span className="muted">Available collateral</span><span className="num">{address ? fmtUsd(account?.free ?? 0) : '—'}</span></div>
-      <div className="tm-kv"><span className="muted">Locked margin</span><span className="num">{address ? fmtUsd(account?.locked ?? 0) : '—'}</span></div>
-      <div className="tm-kv"><span className="muted">Wallet</span><span className="num">{address ? fmtUsd(account?.wallet ?? 0) : '—'}</span></div>
+      <div className="tm-card-h"><span>{t('tm.account')}</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>{unit}</span></div>
+      <div className="tm-kv"><span className="muted">{t('tm.availableLc')}</span><span className="num">{address ? fmtUsd(account?.free ?? 0) : '—'}</span></div>
+      <div className="tm-kv"><span className="muted">{t('tm.lockedLc')}</span><span className="num">{address ? fmtUsd(account?.locked ?? 0) : '—'}</span></div>
+      <div className="tm-kv"><span className="muted">{t('tm.wallet')}</span><span className="num">{address ? fmtUsd(account?.wallet ?? 0) : '—'}</span></div>
       <div className="tm-types" role="tablist" style={{ marginTop: 12 }}>
-        <button type="button" role="tab" aria-selected={mode === 'deposit'} onClick={() => setMode('deposit')}>Deposit</button>
-        <button type="button" role="tab" aria-selected={mode === 'withdraw'} onClick={() => setMode('withdraw')}>Withdraw</button>
+        <button type="button" role="tab" aria-selected={mode === 'deposit'} onClick={() => setMode('deposit')}>{t('tm.deposit')}</button>
+        <button type="button" role="tab" aria-selected={mode === 'withdraw'} onClick={() => setMode('withdraw')}>{t('tm.withdraw')}</button>
       </div>
       <div className="tm-input">
-        <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={`${mode} amount`} />
-        <span role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setAmount(max > 0 ? (Math.floor(max * 100) / 100).toString() : '')}>MAX</span>
+        <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={t(mode === 'deposit' ? 'tm.depositAmount' : 'tm.withdrawAmount')} />
+        <span role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setAmount(max > 0 ? (Math.floor(max * 100) / 100).toString() : '')}>{t('tm.max')}</span>
       </div>
       <button type="button" className="tm-cta neutral" disabled={!deployed || !address || a <= 0 || a > max + 1e-9 || busy} onClick={submit}>
-        {!deployed ? 'Not deployed' : !address ? 'Connect wallet' : a > max + 1e-9 ? 'Amount too high' : mode === 'deposit' ? 'Deposit to Vault' : 'Withdraw'}
+        {t(!deployed ? 'tm.notDeployedShort' : !address ? 'tm.connectWallet' : a > max + 1e-9 ? 'tm.amountTooHigh' : mode === 'deposit' ? 'tm.depositToVault' : 'tm.withdraw')}
       </button>
       {network === 'testnet' && deployed && (address
-        ? <button type="button" className="tm-link" style={{ marginTop: 10 }} disabled={busy} onClick={faucet}>+ Get 10,000 test USDC</button>
-        : <div className="tm-note">Connect a wallet to get 10,000 free test USDC.</div>)}
+        ? <button type="button" className="tm-link" style={{ marginTop: 10 }} disabled={busy} onClick={faucet}>{t('tm.faucetBtn')}</button>
+        : <div className="tm-note">{t('tm.faucetConnect')}</div>)}
     </div>
   );
 }
@@ -334,20 +339,21 @@ export function OrderTerminal({ symbol, product, setProduct, perp, perpsLoaded, 
   deployed: boolean;
   goTo: GoTo;
 }) {
+  const t = useT();
   return (
-    <aside className="tm-right tm-col" aria-label="Order terminal">
+    <aside className="tm-right tm-col" aria-label={t('tm.orderTerminal')}>
       <div className="tm-card">
-        <div className="tm-card-h"><span>Order Terminal</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>{symbol}</span></div>
+        <div className="tm-card-h"><span>{t('tm.orderTerminal')}</span><span className="dim" style={{ fontWeight: 500, fontSize: 12 }}>{symbol}</span></div>
         <div className="tm-tabs" role="tablist" style={{ padding: 0, marginBottom: 14 }}>
-          <button type="button" role="tab" className="tm-tab" aria-selected={product === 'perps'} onClick={() => setProduct('perps')}>Perpetual</button>
-          <button type="button" role="tab" className="tm-tab" aria-selected={product === 'options'} onClick={() => setProduct('options')}>Option</button>
+          <button type="button" role="tab" className="tm-tab" aria-selected={product === 'perps'} onClick={() => setProduct('perps')}>{t('tm.perpetual')}</button>
+          <button type="button" role="tab" className="tm-tab" aria-selected={product === 'options'} onClick={() => setProduct('options')}>{t('tm.option')}</button>
         </div>
         {product === 'perps'
           ? (perp
             ? <PerpTicket perp={perp} fees={fees} account={account} address={address} tx={tx} deployed={deployed} goTo={goTo} />
             : !perpsLoaded && deployed
-            ? <div className="tm-empty"><b>Loading markets…</b></div>
-            : <div className="tm-empty"><b>No perpetual for {symbol}</b>Perps need a live onchain price. On mainnet that means a Chainlink feed, and BABA is the only China stock with one; on testnet a few more run on a keeper-updated feed. Every stock still has options.</div>)
+            ? <div className="tm-empty"><b>{t('tm.loadingMarkets')}</b></div>
+            : <div className="tm-empty"><b>{t('tm.noPerpFor', { symbol })}</b>{t('tm.noPerpBody')}</div>)
           : <OptionTicket option={option} holding={holding} fees={fees} account={account} address={address} tx={tx} deployed={deployed} goTo={goTo} onClear={onClearOption} onSide={onOptionSide} hasFeed={!!perp} />}
       </div>
       <AccountCard account={account} address={address} tx={tx} deployed={deployed} />

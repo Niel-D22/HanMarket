@@ -12,6 +12,7 @@ import {
 } from '../../api/_lib/protocol/abis';
 import { parseDeployment, type Deployment } from '../../api/_lib/protocol/deployments';
 import { scanLogs } from './logScan';
+import { useT, type MsgKey, type Vars } from '../i18n';
 
 export { scanLogs };
 
@@ -317,7 +318,8 @@ export interface HistoryRow {
   kind: 'Perp open' | 'Perp update' | 'Perp close' | 'Liquidated' | 'Option buy' | 'Option sell' | 'Option redeem'
     | 'Deposit' | 'Withdraw' | 'LP deposit' | 'LP withdraw';
   market: string;
-  detail: string;
+  /** translated at render by historyDetail(); the side stays a boolean so it can be worded per language */
+  detail: { key: MsgKey; vars: Vars; isLong?: boolean };
   amount: number; // USDC paid (-) or received (+); for a transfer, into HanMarket (+) or back to the wallet (-)
   /** money moved between the wallet and the vault: neither a gain nor a loss */
   transfer?: boolean;
@@ -345,38 +347,49 @@ export function useHistory(address: Address | undefined, markets: PerpMarket[] |
     const rows: HistoryRow[] = [];
     for (const l of perpLogs as unknown as { eventName: string; args: Record<string, never>; blockNumber: bigint; transactionHash: Hash }[]) {
       const a = l.args as Record<string, bigint | boolean | number | string>;
-      const side = a.isLong ? 'Long' : 'Short';
+      const isLong = !!a.isLong;
       if (l.eventName === 'PerpPositionOpened') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp open', market: perpName(Number(a.marketId)), detail: `${side} ${fmtUsd(usd(a.sizeUsd as bigint))} @ ${fmtPrice(usd(a.price as bigint))}`, amount: -usd(a.fee as bigint) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp open', market: perpName(Number(a.marketId)), detail: { key: 'tm.hist.perpOpen', vars: { size: fmtUsd(usd(a.sizeUsd as bigint)), price: fmtPrice(usd(a.price as bigint)) }, isLong }, amount: -usd(a.fee as bigint) });
       } else if (l.eventName === 'PerpPositionUpdated') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp update', market: perpName(Number(a.marketId)), detail: `${side} @ ${fmtPrice(usd(a.price as bigint))}`, amount: Number(a.realizedPnl) / 1e6 - usd(a.fee as bigint) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp update', market: perpName(Number(a.marketId)), detail: { key: 'tm.hist.perpAt', vars: { price: fmtPrice(usd(a.price as bigint)) }, isLong }, amount: Number(a.realizedPnl) / 1e6 - usd(a.fee as bigint) });
       } else if (l.eventName === 'PerpPositionClosed') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp close', market: perpName(Number(a.marketId)), detail: `${side} closed @ ${fmtPrice(usd(a.price as bigint))}`, amount: Number(a.realizedPnl) / 1e6 - usd(a.fee as bigint) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Perp close', market: perpName(Number(a.marketId)), detail: { key: 'tm.hist.perpClose', vars: { price: fmtPrice(usd(a.price as bigint)) }, isLong }, amount: Number(a.realizedPnl) / 1e6 - usd(a.fee as bigint) });
       } else if (l.eventName === 'PositionLiquidated') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Liquidated', market: perpName(Number(a.marketId)), detail: `${side} @ ${fmtPrice(usd(a.price as bigint))}`, amount: usd(a.returned as bigint) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Liquidated', market: perpName(Number(a.marketId)), detail: { key: 'tm.hist.perpAt', vars: { price: fmtPrice(usd(a.price as bigint)) }, isLong }, amount: usd(a.returned as bigint) });
       }
     }
     for (const l of optLogs as unknown as { eventName: string; args: Record<string, bigint>; blockNumber: bigint; transactionHash: Hash }[]) {
       const a = l.args;
       if (l.eventName === 'OptionPositionOpened') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option buy', market: seriesName(a.seriesId), detail: `${usd(a.qty)} @ ${fmtUsd(usd(a.premium))}`, amount: -(usd(a.cost) + usd(a.fee)) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option buy', market: seriesName(a.seriesId), detail: { key: 'tm.hist.optionTrade', vars: { qty: usd(a.qty), premium: fmtUsd(usd(a.premium)) } }, amount: -(usd(a.cost) + usd(a.fee)) });
       } else if (l.eventName === 'OptionPositionClosed') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option sell', market: seriesName(a.seriesId), detail: `${usd(a.qty)} @ ${fmtUsd(usd(a.premium))}`, amount: usd(a.proceeds) - usd(a.fee) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option sell', market: seriesName(a.seriesId), detail: { key: 'tm.hist.optionTrade', vars: { qty: usd(a.qty), premium: fmtUsd(usd(a.premium)) } }, amount: usd(a.proceeds) - usd(a.fee) });
       } else if (l.eventName === 'OptionExercised') {
-        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option redeem', market: seriesName(a.seriesId), detail: `${usd(a.qty)} contracts`, amount: usd(a.payout) - usd(a.fee) });
+        rows.push({ block: l.blockNumber, hash: l.transactionHash, kind: 'Option redeem', market: seriesName(a.seriesId), detail: { key: 'tm.hist.redeem', vars: { qty: usd(a.qty) } }, amount: usd(a.payout) - usd(a.fee) });
       }
     }
     for (const l of [...transferLogs, ...lpLogs] as { eventName: string; args: Record<string, bigint>; blockNumber: bigint; transactionHash: Hash }[]) {
       const a = l.args;
       const base = { block: l.blockNumber, hash: l.transactionHash, market: 'Vault', transfer: true };
-      if (l.eventName === 'CollateralDeposited') rows.push({ ...base, kind: 'Deposit', detail: 'Wallet → available collateral', amount: usd(a.amount) });
-      else if (l.eventName === 'CollateralWithdrawn') rows.push({ ...base, kind: 'Withdraw', detail: 'Available collateral → wallet', amount: -usd(a.amount) });
-      else if (l.eventName === 'LiquidityAdded') rows.push({ ...base, kind: 'LP deposit', detail: `Wallet → pool, ${(Number(a.shares) / 1e18).toFixed(4)} hmLP`, amount: usd(a.amount) });
-      else if (l.eventName === 'LiquidityRemoved') rows.push({ ...base, kind: 'LP withdraw', detail: `Pool → wallet, ${(Number(a.shares) / 1e18).toFixed(4)} hmLP`, amount: -usd(a.amount) });
+      if (l.eventName === 'CollateralDeposited') rows.push({ ...base, kind: 'Deposit', detail: { key: 'tm.hist.deposit', vars: {} }, amount: usd(a.amount) });
+      else if (l.eventName === 'CollateralWithdrawn') rows.push({ ...base, kind: 'Withdraw', detail: { key: 'tm.hist.withdraw', vars: {} }, amount: -usd(a.amount) });
+      else if (l.eventName === 'LiquidityAdded') rows.push({ ...base, kind: 'LP deposit', detail: { key: 'tm.hist.lpIn', vars: { shares: (Number(a.shares) / 1e18).toFixed(4) } }, amount: usd(a.amount) });
+      else if (l.eventName === 'LiquidityRemoved') rows.push({ ...base, kind: 'LP withdraw', detail: { key: 'tm.hist.lpOut', vars: { shares: (Number(a.shares) / 1e18).toFixed(4) } }, amount: -usd(a.amount) });
     }
     return rows.sort((x, y) => Number(y.block - x.block));
   }, 30_000);
 }
+
+/** A history row's kind in the reader's language. `kind` itself stays English, since the views filter on it. */
+export const KIND_KEY: Record<HistoryRow['kind'], MsgKey> = {
+  'Perp open': 'tm.kind.perpOpen', 'Perp update': 'tm.kind.perpUpdate', 'Perp close': 'tm.kind.perpClose',
+  Liquidated: 'tm.kind.liquidated', 'Option buy': 'tm.kind.optionBuy', 'Option sell': 'tm.kind.optionSell',
+  'Option redeem': 'tm.kind.optionRedeem', Deposit: 'tm.kind.deposit', Withdraw: 'tm.kind.withdraw',
+  'LP deposit': 'tm.kind.lpDeposit', 'LP withdraw': 'tm.kind.lpWithdraw',
+};
+
+export const historyDetail = (t: (key: MsgKey, vars?: Vars) => string, { key, vars, isLong }: HistoryRow['detail']) =>
+  t(key, isLong === undefined ? vars : { ...vars, side: t(isLong ? 'tm.long' : 'tm.short') });
 
 // ---------------------------------------------------------------- price source
 
@@ -387,6 +400,11 @@ export function useHistory(address: Address | undefined, markets: PerpMarket[] |
  */
 export const priceSource = (network: NetworkKey, hasFeed: boolean) =>
   !hasFeed ? 'Signed price' : network === 'mainnet' ? 'Chainlink' : 'Testnet feed';
+
+/** priceSource() stays English for comparisons; this is its label in the reader's language */
+export const SOURCE_KEY: Record<ReturnType<typeof priceSource>, MsgKey> = {
+  'Signed price': 'tm.src.signed', Chainlink: 'tm.src.chainlink', 'Testnet feed': 'tm.src.testnet',
+};
 
 // ---------------------------------------------------------------- settlement token
 
@@ -454,6 +472,7 @@ export function useTx() {
   const { chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const queryClient = useQueryClient();
+  const t = useT();
   const [state, setState] = useState<TxState>({ stage: 'idle', label: '' });
 
   const run = useCallback(async (label: string, steps: Step[], outcome?: TxOutcome) => {
@@ -463,25 +482,25 @@ export function useTx() {
       // fetched here, not from useWalletClient: right after a network switch that hook still holds the client from
       // before it (none, on the wrong network), which made the first click after "Wrong network" fail
       const wallet = await getWalletClient(config, { chainId: chain.id }).catch(() => undefined);
-      if (!wallet || !client) throw new Error('Connect a wallet first');
+      if (!wallet || !client) throw new Error(t('tm.err.connectFirst'));
       let hash: Hash | undefined;
       for (const step of steps) {
         setState({ stage: 'wallet', label, hash, outcome });
         hash = await step(wallet as unknown as Wallet);
         setState({ stage: 'confirming', label, hash, outcome });
         const receipt = await client.waitForTransactionReceipt({ hash });
-        if (receipt.status !== 'success') throw new Error('Transaction reverted');
+        if (receipt.status !== 'success') throw new Error(t('tm.err.reverted'));
       }
       setState({ stage: 'confirmed', label, hash, outcome });
       await queryClient.invalidateQueries({ queryKey: ['hm'] });
       return true;
     } catch (e) {
       const err = e as { shortMessage?: string; message?: string };
-      const message = (err.shortMessage ?? err.message ?? 'Transaction failed').split('\n')[0];
-      setState((s) => ({ ...s, stage: 'failed', error: /reject|denied/i.test(message) ? 'You rejected the request in your wallet' : message }));
+      const message = (err.shortMessage ?? err.message ?? t('tm.err.failed')).split('\n')[0];
+      setState((s) => ({ ...s, stage: 'failed', error: /reject|denied/i.test(message) ? t('tm.err.rejected') : message }));
       return false;
     }
-  }, [chain.id, chainId, client, config, queryClient, switchChainAsync]);
+  }, [chain.id, chainId, client, config, queryClient, switchChainAsync, t]);
 
   const reset = useCallback(() => setState({ stage: 'idle', label: '' }), []);
   return { state, run, reset, explorer: chain.blockExplorers?.default.url };

@@ -137,9 +137,10 @@
 
 /* Mobile Responsiveness. 768px used to be the cutoff, then 900px: the desktop grid's clamp(20px, 8vw, 150px) side
    padding plus the wordmark, four nav links, theme toggle and Launch App button don't fit below that. With the
-   Beijing clock and the music player in the bar as well, Launch App ran off the right edge up to 1100px (measured),
-   so that whole band gets the simpler two-column (logo + hamburger) layout instead of a cramped desktop one. */
-@media (max-width: 1100px) {
+   Beijing clock, the music player and the language switch in the bar as well, Launch App ran off the right edge up
+   to about 1115px (measured), so that whole band gets the simpler two-column (logo + hamburger) layout instead of a
+   cramped desktop one. */
+@media (max-width: 1140px) {
   .navbar-container {
     padding: 0.5rem 1rem;
   }
@@ -190,6 +191,43 @@
     width: 40px;
     height: 40px;
   }
+}
+
+/* Pieces the bar drops when a language's words run longer than the breakpoints above allow (set by Navbar.tsx,
+   one at a time, only while the bar overflows). 'compact' is the same menu layout as below 1140px. */
+.navbar-landing[data-squeeze~='title'] .cn-track-title,
+.navbar-landing[data-squeeze~='city'] .cn-city,
+.navbar-landing[data-squeeze~='clock'] .cn-clock,
+.navbar-landing[data-squeeze~='track'] .cn-track,
+.navbar-landing[data-squeeze~='track'] .cn-next,
+.navbar-landing[data-squeeze~='launch'] .navbar-launch,
+.navbar-landing[data-squeeze~='lang'] .ls,
+.navbar-landing[data-squeeze~='player'] .cn-player {
+  display: none;
+}
+.navbar-landing[data-squeeze~='compact'] {
+  grid-template-columns: 1fr auto;
+  padding: 1rem 20px;
+  gap: 0.75rem;
+}
+.navbar-landing.navbar-scrolled[data-squeeze~='compact'] {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+.navbar-landing[data-squeeze~='compact'] .navbar-logo { font-size: 1rem; }
+.navbar-landing[data-squeeze~='compact'] .navbar-links { display: none; }
+.navbar-landing[data-squeeze~='compact'] .navbar-actions { gap: 0.5rem; }
+.navbar-landing[data-squeeze~='compact'] .navbar-launch {
+  padding: 0.6rem 1rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+}
+.navbar-landing[data-squeeze~='compact'] .hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
 }
 
 @media (max-width: 520px) {

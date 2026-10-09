@@ -15,6 +15,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { CHAINS, robinhoodMainnet, robinhoodTestnet, rpcProxyUrl } from '../web3/chains';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useTheme } from '../theme/ThemeProvider';
+import { useI18n } from '../i18n';
 
 // WalletConnect (mobile wallets, QR codes) needs a free project id from cloud.reown.com.
 // Without one, only browser-extension wallets are offered, so no request fails with an invalid id.
@@ -68,8 +69,10 @@ const InnerRainbow: FC<{ children: ReactNode }> = ({ children }) => {
   const chain = CHAINS[network];
   const { theme: siteTheme } = useTheme();
   const theme = walletThemes[siteTheme];
+  // the connect modal speaks the site's language (RainbowKit ships all five)
+  const { lang } = useI18n();
   return (
-    <RainbowKitProvider theme={theme} initialChain={chain} modalSize="compact" appInfo={{ appName: 'HanMarket' }}>
+    <RainbowKitProvider theme={theme} initialChain={chain} modalSize="compact" appInfo={{ appName: 'HanMarket' }} locale={lang}>
       {children}
     </RainbowKitProvider>
   );

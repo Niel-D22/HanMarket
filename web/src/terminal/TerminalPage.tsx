@@ -16,6 +16,7 @@ import {
   optionLabel, toUsd6, useAccountState, useAllSeries, useHistory, useOptionHoldings, usePerpPositions,
   useProtocol, useProtocolState, useTx, type OptionHolding, type PerpPosition,
 } from './protocol';
+import { useT } from '../i18n';
 import './terminal.css';
 
 const SLIPPAGE = 0.005;
@@ -23,6 +24,7 @@ const deadline = () => BigInt(Math.floor(Date.now() / 1000) + 300);
 
 /** The HanMarket trading terminal: options and perpetuals on China equities, in the Orionis layout. */
 export function TerminalPage() {
+  const t = useT();
   const { network, setNetwork, d } = useProtocol();
   const { address } = useAccount();
   const quotes = usePrices();
@@ -105,11 +107,11 @@ export function TerminalPage() {
   const closePerp = (p: PerpPosition) => {
     if (!d) return;
     const acceptable = toUsd6(p.isLong ? p.markPrice * (1 - SLIPPAGE) : p.markPrice * (1 + SLIPPAGE));
-    tx.run(`Close ${p.isLong ? 'long' : 'short'} ${p.symbol}`, [
+    tx.run(t('tm.txClose', { side: t(p.isLong ? 'tm.longLc' : 'tm.shortLc'), symbol: p.symbol }), [
       (w) => w.writeContract({ address: d.perpsEngine, abi: perpsAbi, functionName: 'closePosition', args: [p.marketId, p.isLong, acceptable, deadline()] }),
     ], {
-      text: 'Position closed. The margin and any profit are back in your available collateral.',
-      action: { label: 'See it in History', run: () => goTo('history') },
+      text: t('tm.outClose'),
+      action: { label: t('tm.seeHistory'), run: () => goTo('history') },
     });
   };
 
@@ -129,11 +131,11 @@ export function TerminalPage() {
 
   const redeem = (h: OptionHolding) => {
     if (!d) return;
-    tx.run(`Redeem ${optionLabel(symbols[h.assetId] ?? '?', h.expiry, h.strike, h.isCall)}`, [
+    tx.run(t('tm.txRedeem', { label: optionLabel(symbols[h.assetId] ?? '?', h.expiry, h.strike, h.isCall) }), [
       (w) => w.writeContract({ address: d.optionsEngine, abi: optionsAbi, functionName: 'redeem', args: [BigInt(h.id), toUsd6(h.contracts)] }),
     ], {
-      text: 'Settled. The payout is in your available collateral, and the contracts have left your Options tab.',
-      action: { label: 'See it in History', run: () => goTo('history') },
+      text: t('tm.outRedeem'),
+      action: { label: t('tm.seeHistory'), run: () => goTo('history') },
     });
   };
 

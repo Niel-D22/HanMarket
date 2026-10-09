@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useT } from '../i18n';
 
 // Light / dark theme for the whole site. index.html applies the theme before first paint; this keeps
 // <html data-theme> in sync afterwards and remembers the visitor's pick.
@@ -87,9 +88,10 @@ export function useTheme(): ThemeState {
 /** Sun / moon button that flips the theme. */
 export function ThemeToggle({ className = 'theme-toggle' }: { className?: string }) {
   const { theme, toggle } = useTheme();
-  const next = theme === 'dark' ? 'light' : 'dark';
+  const t = useT();
+  const label = t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark');
   return (
-    <button type="button" className={className} onClick={toggle} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`}>
+    <button type="button" className={className} onClick={toggle} aria-label={label} title={label}>
       {theme === 'dark' ? (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4.2" />
